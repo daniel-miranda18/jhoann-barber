@@ -8,11 +8,19 @@ export async function buscarServicios(q) {
   return r.json();
 }
 
-export async function barberosDisponibles({ fecha, hora, duracion }) {
+export async function barberosDisponibles({
+  fecha,
+  hora,
+  duracion,
+  servicios,
+}) {
   const u = new URL(`${API}/citas/barberos-disponibles`);
   u.searchParams.set("fecha", fecha);
   u.searchParams.set("hora", hora);
   u.searchParams.set("duracion", String(duracion));
+  (servicios || []).forEach((id) =>
+    u.searchParams.append("servicios", String(id))
+  );
   const r = await fetch(u, { credentials: "include" });
   if (!r.ok) throw new Error("Error");
   return r.json();

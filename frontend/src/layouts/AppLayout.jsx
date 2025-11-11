@@ -26,6 +26,7 @@ import VpnKeyIcon from "@mui/icons-material/VpnKey";
 import ExpandLess from "@mui/icons-material/ExpandLess";
 import ExpandMore from "@mui/icons-material/ExpandMore";
 import ContentCutIcon from "@mui/icons-material/ContentCut";
+import PersonIcon from "@mui/icons-material/Person";
 import ShoppingBagIcon from "@mui/icons-material/ShoppingBag";
 import LogoutIcon from "@mui/icons-material/Logout";
 import PaidIcon from "@mui/icons-material/Paid";
@@ -211,7 +212,7 @@ export default function AppLayout() {
           }}
         >
           <ListItemIcon>
-            <ContentCutIcon />
+            <PersonIcon />
           </ListItemIcon>
           <ListItemText primary="Barberos" />
         </ListItemButton>

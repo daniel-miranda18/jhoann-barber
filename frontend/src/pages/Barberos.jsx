@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, useRef } from "react";
 import {
   Paper,
   TextField,
@@ -45,7 +45,7 @@ const DIAS = [
   { v: 7, t: "Domingo" },
 ];
 
-function useDebounced(v, ms = 350) {
+function useDebounced(v, ms = 500) {
   const [x, setX] = useState(v);
   useEffect(() => {
     const id = setTimeout(() => setX(v), ms);
@@ -54,13 +54,16 @@ function useDebounced(v, ms = 350) {
   return x;
 }
 function t2m(s) {
-  const m = /^(\d{1,2}):(\d{2})$/.exec(String(s || ""));
+  const m = /^(\d{1,2}):(\d{2})(?::(\d{2}))?$/.exec(String(s || ""));
   if (!m) return null;
-  return parseInt(m[1], 10) * 60 + parseInt(m[2], 10);
+  const hh = parseInt(m[1], 10);
+  const mm = parseInt(m[2], 10);
+  return hh * 60 + mm;
 }
+
 function m2t(mins) {
-  const h = Math.floor(mins / 60);
-  const m = mins % 60;
+  const h = Math.floor(mins / 60),
+    m = mins % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
 function buildSlots(ti, tf, step) {
@@ -79,6 +82,7 @@ function emptySlotsMap() {
     7: new Set(),
   };
 }
+
 export default function Barberos() {
   const [rows, setRows] = useState([]);
   const [q, setQ] = useState("");
@@ -105,7 +109,12 @@ export default function Barberos() {
   );
 
   const [slotsSel, setSlotsSel] = useState(() => emptySlotsMap());
+  const [horariosRaw, setHorariosRaw] = useState([]);
   const [copiarDesde, setCopiarDesde] = useState(1);
+
+  const loadedRef = useRef(false);
+  const [dirty, setDirty] = useState(false);
+  const slotsSelDebounced = useDebounced(slotsSel, 600);
 
   function notify(msg, sev = "success") {
     setSnack({ open: true, msg, sev });
@@ -134,9 +143,9 @@ export default function Barberos() {
     const map = emptySlotsMap();
     const indexMinutes = slots.map(t2m);
     for (const x of hor) {
-      const d = Number(x.dia_semana);
-      const hi = t2m(x.hora_inicio);
-      const hf = t2m(x.hora_fin);
+      const d = Number(x.dia_semana),
+        hi = t2m(x.hora_inicio),
+        hf = t2m(x.hora_fin);
       for (let i = 0; i < indexMinutes.length; i++) {
         const sm = indexMinutes[i];
         if (sm >= hi && sm < hf) map[d].add(i);
@@ -150,8 +159,8 @@ export default function Barberos() {
     for (const d of [1, 2, 3, 4, 5, 6, 7]) {
       const arr = Array.from(map[d] || []).sort((a, b) => a - b);
       if (!arr.length) continue;
-      let startIdx = arr[0];
-      let prev = arr[0];
+      let startIdx = arr[0],
+        prev = arr[0];
       for (let i = 1; i <= arr.length; i++) {
         const cur = arr[i];
         if (i === arr.length || cur !== prev + 1) {
@@ -169,7 +178,9 @@ export default function Barberos() {
 
   async function openBarbero(b) {
     setSel(b);
-    setTab(0);
+    setTab(1);
+    loadedRef.current = false;
+    setDirty(false);
     try {
       const [srv, hor, all] = await Promise.all([
         listarServiciosBarbero(b.id).catch(() => ({ data: [] })),
@@ -178,13 +189,23 @@ export default function Barberos() {
       ]);
       setServiciosAll(all.data || []);
       setServSel((srv.data || []).map((s) => s.id));
-      const map = rangesToSlotsMap(hor.data || []);
-      setSlotsSel(map);
-    } catch (e) {
+      const hr = hor.data || [];
+      setHorariosRaw(hr);
+      setSlotsSel(rangesToSlotsMap(hr));
+      loadedRef.current = true;
+      setDirty(false);
+    } catch {
       setServiciosAll([]);
       setServSel([]);
+      setHorariosRaw([]);
       setSlotsSel(emptySlotsMap());
+      loadedRef.current = true;
+      setDirty(false);
     }
+  }
+
+  function markDirty() {
+    if (loadedRef.current) setDirty(true);
   }
 
   function toggleCell(day, idx) {
@@ -199,6 +220,7 @@ export default function Barberos() {
       }
       return next;
     });
+    markDirty();
   }
 
   function clickCellKeyboard(e, day, idx) {
@@ -224,25 +246,26 @@ export default function Barberos() {
       }
       return next;
     });
+    markDirty();
     notify("Copiado");
   }
 
   function borrarDia(d) {
     setSlotsSel((prev) => ({ ...prev, [d]: new Set() }));
+    markDirty();
   }
-
   function selectAllDia(d) {
     setSlotsSel((prev) => {
       const s = new Set();
       for (let i = 0; i < slots.length; i++) s.add(i);
       return { ...prev, [d]: s };
     });
+    markDirty();
   }
-
   function presetLV_ManianaTarde() {
-    const mins = slots.map(t2m);
-    const i0812 = [];
-    const i1419 = [];
+    const mins = slots.map(t2m),
+      i0812 = [],
+      i1419 = [];
     for (let i = 0; i < mins.length; i++) {
       if (mins[i] >= 480 && mins[i] < 720) i0812.push(i);
       if (mins[i] >= 840 && mins[i] < 1140) i1419.push(i);
@@ -255,15 +278,16 @@ export default function Barberos() {
       return map;
     });
     setDiasAct([1, 2, 3, 4, 5]);
+    markDirty();
   }
-
   function presetSabadoManiana() {
-    const mins = slots.map(t2m);
-    const s = new Set();
+    const mins = slots.map(t2m),
+      s = new Set();
     for (let i = 0; i < mins.length; i++)
       if (mins[i] >= 540 && mins[i] < 780) s.add(i);
     setSlotsSel((prev) => ({ ...prev, 6: s }));
     if (!diasAct.includes(6)) setDiasAct([...diasAct, 6]);
+    markDirty();
   }
 
   async function saveServicios() {
@@ -276,20 +300,35 @@ export default function Barberos() {
     }
   }
 
-  async function saveHorario() {
+  async function saveHorarioExplicit() {
     if (!sel) return;
-    if (startMin >= endMin) {
-      notify("Rango de vista inválido", "error");
-      return;
-    }
     const lista = slotsMapToRanges(slotsSel);
     try {
-      await guardarHorariosBarbero(sel.id, lista);
+      const r = await guardarHorariosBarbero(sel.id, lista);
+      setHorariosRaw(r.data || []);
+      setDirty(false);
       notify("Horario guardado");
     } catch (e) {
       notify(e?.response?.data?.mensaje || "Error", "error");
     }
   }
+
+  useEffect(() => {
+    if (!sel) return;
+    if (!loadedRef.current) return;
+    if (!dirty) return;
+    const lista = slotsMapToRanges(slotsSelDebounced);
+    guardarHorariosBarbero(sel.id, lista)
+      .then((r) => {
+        setHorariosRaw(r.data || []);
+        setDirty(false);
+      })
+      .catch(() => {});
+  }, [slotsSelDebounced, sel, dirty]);
+
+  useEffect(() => {
+    setSlotsSel(rangesToSlotsMap(horariosRaw));
+  }, [startMin, endMin, step]);
 
   return (
     <Paper
@@ -364,6 +403,7 @@ export default function Barberos() {
           </div>
         </>
       )}
+
       {sel && (
         <>
           <div className="row mb-2">
@@ -376,16 +416,20 @@ export default function Barberos() {
                 onClick={() => {
                   setSel(null);
                   setSlotsSel(emptySlotsMap());
+                  setHorariosRaw([]);
+                  setTab(0);
                 }}
               >
                 Volver
               </Button>
             </div>
           </div>
+
           <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
             <Tab label="Servicios" />
             <Tab label="Horario" />
           </Tabs>
+
           {tab === 0 && (
             <div className="row g-3">
               <div className="col-12 col-md-8">
@@ -415,6 +459,7 @@ export default function Barberos() {
               </div>
             </div>
           )}
+
           {tab === 1 && (
             <div className="row g-3">
               <div className="col-12 col-xxl-3">
@@ -459,11 +504,11 @@ export default function Barberos() {
                       value={DIAS.filter((d) => diasAct.includes(d.v))}
                       onChange={(_, vals) => setDiasAct(vals.map((v) => v.v))}
                       renderTags={(value, getTagProps) =>
-                        value.map((option, index) => (
+                        value.map((o, i) => (
                           <Chip
-                            {...getTagProps({ index })}
-                            key={option.v}
-                            label={option.t}
+                            {...getTagProps({ index: i })}
+                            key={o.v}
+                            label={o.t}
                           />
                         ))
                       }
@@ -544,14 +589,26 @@ export default function Barberos() {
                       <Button
                         size="small"
                         startIcon={<ReplayIcon />}
-                        onClick={() => setSlotsSel(emptySlotsMap())}
+                        onClick={() => {
+                          setSlotsSel(emptySlotsMap());
+                          markDirty();
+                        }}
                       >
                         Vaciar
                       </Button>
                     </Stack>
+                    <Divider sx={{ my: 2 }} />
+                    <Button
+                      variant="contained"
+                      startIcon={<SaveIcon />}
+                      onClick={saveHorarioExplicit}
+                    >
+                      Guardar manualmente
+                    </Button>
                   </CardContent>
                 </Card>
               </div>
+
               <div className="col-12 col-xxl-9">
                 <Card variant="outlined">
                   <CardContent>
@@ -646,16 +703,6 @@ export default function Barberos() {
                         </tbody>
                       </table>
                     </div>
-                    <Divider sx={{ my: 2 }} />
-                    <Stack direction="row" spacing={1}>
-                      <Button
-                        variant="contained"
-                        startIcon={<SaveIcon />}
-                        onClick={saveHorario}
-                      >
-                        Guardar horario
-                      </Button>
-                    </Stack>
                   </CardContent>
                 </Card>
               </div>
@@ -663,6 +710,7 @@ export default function Barberos() {
           )}
         </>
       )}
+
       <Snackbar
         open={snack.open}
         autoHideDuration={3000}

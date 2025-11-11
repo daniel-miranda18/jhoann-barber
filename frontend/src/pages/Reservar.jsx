@@ -1,7 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import {
   Container,
-  Box,
   Stepper,
   Step,
   StepLabel,
@@ -10,13 +9,21 @@ import {
   TextField,
   Button,
   Chip,
-  Grid,
   Autocomplete,
   Snackbar,
   Alert,
   Typography,
   Divider,
+  Card,
+  CardActionArea,
+  Avatar,
+  IconButton,
 } from "@mui/material";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import ContentCutIcon from "@mui/icons-material/ContentCut";
+import PersonIcon from "@mui/icons-material/Person";
+import ArrowBackIosNew from "@mui/icons-material/ArrowBackIosNew";
+import ArrowForwardIos from "@mui/icons-material/ArrowForwardIos";
 import dayjs from "dayjs";
 import {
   buscarServicios,
@@ -28,18 +35,35 @@ function Bs(n) {
   return `Bs ${Number(n || 0).toFixed(2)}`;
 }
 
+function rangoHoras({ start = "08:00", end = "20:00", stepMin = 30 }) {
+  const out = [];
+  let t = dayjs(`2020-01-01 ${start}`);
+  const to = dayjs(`2020-01-01 ${end}`);
+  while (t.isBefore(to) || t.isSame(to)) {
+    out.push(t.format("HH:mm"));
+    t = t.add(stepMin, "minute");
+  }
+  return out;
+}
+
 export default function Reservar() {
   const [step, setStep] = useState(0);
   const [q, setQ] = useState("");
   const [servOpc, setServOpc] = useState([]);
   const [servSel, setServSel] = useState([]);
   const [fecha, setFecha] = useState(dayjs().format("YYYY-MM-DD"));
-  const [hora, setHora] = useState("09:00");
+  const [hora, setHora] = useState("");
+  const [horas, setHoras] = useState(rangoHoras({}));
   const duracion = useMemo(
     () =>
       servSel.reduce((a, b) => a + Number(b.duracion_minutos || 0), 0) || 60,
     [servSel]
   );
+  const totalEstimado = useMemo(
+    () => servSel.reduce((a, b) => a + Number(b.precio || 0), 0),
+    [servSel]
+  );
+  const servicioIds = useMemo(() => servSel.map((s) => s.id), [servSel]);
   const [barberos, setBarberos] = useState([]);
   const [barberoSel, setBarberoSel] = useState(null);
   const [cli, setCli] = useState({
@@ -49,6 +73,7 @@ export default function Reservar() {
     telefono: "",
   });
   const [snack, setSnack] = useState({ open: false, msg: "", sev: "success" });
+
   useEffect(() => {
     let cancel = false;
     (async () => {
@@ -59,23 +84,38 @@ export default function Reservar() {
       cancel = true;
     };
   }, [q]);
+
   useEffect(() => {
     let cancel = false;
     (async () => {
-      if (!fecha || !hora || !duracion) return setBarberos([]);
-      const r = await barberosDisponibles({ fecha, hora, duracion });
+      if (!fecha || !duracion || !hora || servicioIds.length === 0) {
+        setBarberos([]);
+        return;
+      }
+      const r = await barberosDisponibles({
+        fecha,
+        hora,
+        duracion,
+        servicios: servicioIds,
+      });
       if (!cancel) setBarberos(r.data || []);
     })();
     return () => {
       cancel = true;
     };
-  }, [fecha, hora, duracion]);
+  }, [fecha, hora, duracion, servicioIds]);
+
+  useEffect(() => {
+    setHoras(rangoHoras({}));
+  }, []);
+
   function next() {
     setStep((s) => Math.min(3, s + 1));
   }
   function prev() {
     setStep((s) => Math.max(0, s - 1));
   }
+
   async function confirmar() {
     try {
       const payload = {
@@ -89,7 +129,7 @@ export default function Reservar() {
         fecha,
         hora,
         duracion_minutos: duracion,
-        servicios: servSel.map((s) => s.id),
+        servicios: servicioIds,
         notas: null,
       };
       const r = await crearCita(payload);
@@ -103,13 +143,85 @@ export default function Reservar() {
       setSnack({ open: true, msg: e?.mensaje || "Error", sev: "error" });
     }
   }
+
+  function Resumen() {
+    return (
+      <Card className="position-sticky top-0" sx={{ p: 2, borderRadius: 3 }}>
+        <Typography variant="h6" sx={{ fontWeight: 900, mb: 1 }}>
+          Resumen
+        </Typography>
+        <Stack spacing={1}>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <ContentCutIcon fontSize="small" />
+            <Typography>
+              {servSel.length
+                ? `${servSel.length} servicio(s)`
+                : "Sin servicios"}
+            </Typography>
+          </Stack>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <AccessTimeIcon fontSize="small" />
+            <Typography>{duracion} min</Typography>
+          </Stack>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <PersonIcon fontSize="small" />
+            <Typography>
+              {barberoSel?.nombre || "Barbero no seleccionado"}
+            </Typography>
+          </Stack>
+          <Stack direction="row" spacing={1}>
+            <Chip size="small" label={fecha || "Fecha"} />
+            <Chip size="small" label={hora || "Hora"} />
+          </Stack>
+        </Stack>
+        <Divider sx={{ my: 1.5 }} />
+        <Stack spacing={0.5}>
+          {servSel.map((s) => (
+            <Stack key={s.id} direction="row" justifyContent="space-between">
+              <Typography variant="body2">{s.nombre}</Typography>
+              <Typography variant="body2" color="text.secondary">
+                {Bs(s.precio)}
+              </Typography>
+            </Stack>
+          ))}
+          <Divider sx={{ my: 1 }} />
+          <Stack direction="row" justifyContent="space-between">
+            <Typography sx={{ fontWeight: 800 }}>Estimado</Typography>
+            <Typography sx={{ fontWeight: 800 }}>
+              {Bs(totalEstimado)}
+            </Typography>
+          </Stack>
+        </Stack>
+      </Card>
+    );
+  }
+
   return (
-    <Container sx={{ py: 4 }}>
-      <Typography variant="h4" sx={{ mb: 2 }}>
-        Reservar
-      </Typography>
-      <Stepper activeStep={step} alternativeLabel sx={{ mb: 3 }}>
-        {["Servicios", "Fecha y Hora", "Datos del cliente", "Confirmación"].map(
+    <Container className="py-4">
+      <div className="d-flex align-items-center justify-content-between mb-3">
+        <Typography variant="h4" sx={{ fontWeight: 900 }}>
+          Reservar
+        </Typography>
+        <Stack direction="row" spacing={1}>
+          <IconButton
+            onClick={() =>
+              setFecha(dayjs(fecha).subtract(1, "day").format("YYYY-MM-DD"))
+            }
+          >
+            <ArrowBackIosNew fontSize="small" />
+          </IconButton>
+          <IconButton
+            onClick={() =>
+              setFecha(dayjs(fecha).add(1, "day").format("YYYY-MM-DD"))
+            }
+          >
+            <ArrowForwardIos fontSize="small" />
+          </IconButton>
+        </Stack>
+      </div>
+
+      <Stepper activeStep={step} alternativeLabel className="mb-4">
+        {["Servicios", "Fecha y hora", "Datos del cliente", "Confirmación"].map(
           (t) => (
             <Step key={t}>
               <StepLabel>{t}</StepLabel>
@@ -117,161 +229,281 @@ export default function Reservar() {
           )
         )}
       </Stepper>
-      {step === 0 && (
-        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-          <Stack spacing={2}>
-            <Autocomplete
-              multiple
-              options={servOpc}
-              getOptionLabel={(o) => o?.nombre || ""}
-              value={servSel}
-              onChange={(_, v) => setServSel(v)}
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="Servicios"
-                  placeholder="Buscar y seleccionar"
-                />
-              )}
-              onInputChange={(_, v) => setQ(v)}
-            />
-            <Stack direction="row" spacing={1}>
-              <Chip label={`Seleccionados: ${servSel.length}`} />
-              <Chip label={`Duración total: ${duracion} min`} />
-              <Chip
-                label={`Estimado: ${Bs(
-                  servSel.reduce((a, b) => a + Number(b.precio || 0), 0)
-                )}`}
-              />
-            </Stack>
-            <Stack direction="row" spacing={1} justifyContent="end">
-              <Button
-                disabled={!servSel.length}
-                variant="contained"
-                onClick={next}
-              >
-                Siguiente
-              </Button>
-            </Stack>
-          </Stack>
-        </Paper>
+
+      {step !== 3 && (
+        <div className="row g-3">
+          <div className="col-12 col-lg-8">
+            {step === 0 && (
+              <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
+                <div className="row g-3">
+                  <div className="col-12">
+                    <Autocomplete
+                      multiple
+                      options={servOpc}
+                      getOptionLabel={(o) => o?.nombre || ""}
+                      value={servSel}
+                      onChange={(_, v) => {
+                        setServSel(v);
+                        setBarberoSel(null);
+                        setHora("");
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          label="Servicios"
+                          placeholder="Buscar y seleccionar"
+                        />
+                      )}
+                      onInputChange={(_, v) => setQ(v)}
+                      renderOption={(props, option) => (
+                        <li
+                          {...props}
+                          className="d-flex justify-content-between w-100"
+                        >
+                          <span>{option.nombre}</span>
+                          <span className="text-muted small">
+                            {option.duracion_minutos} min · {Bs(option.precio)}
+                          </span>
+                        </li>
+                      )}
+                    />
+                  </div>
+
+                  <div className="col-12 d-flex flex-wrap gap-2">
+                    <Chip label={`Seleccionados: ${servSel.length}`} />
+                    <Chip label={`Duración: ${duracion} min`} />
+                    <Chip label={`Estimado: ${Bs(totalEstimado)}`} />
+                  </div>
+
+                  <div className="col-12 d-flex justify-content-end">
+                    <Button
+                      disabled={!servSel.length}
+                      variant="contained"
+                      onClick={next}
+                    >
+                      Siguiente
+                    </Button>
+                  </div>
+                </div>
+              </Paper>
+            )}
+
+            {step === 1 && (
+              <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
+                <div className="row g-3">
+                  <div className="col-12 col-md-6">
+                    <TextField
+                      label="Fecha"
+                      type="date"
+                      fullWidth
+                      value={fecha}
+                      onChange={(e) => {
+                        setFecha(e.target.value);
+                        setHora("");
+                        setBarberoSel(null);
+                      }}
+                      InputLabelProps={{ shrink: true }}
+                    />
+                  </div>
+                  <div className="col-12">
+                    <Typography sx={{ mb: 1, fontWeight: 700 }}>
+                      Horarios
+                    </Typography>
+                    <div className="d-flex flex-wrap gap-2">
+                      {horas.map((h) => {
+                        const active = hora === h;
+                        const disabled = servSel.length === 0;
+                        return (
+                          <Chip
+                            key={h}
+                            label={h}
+                            clickable={!disabled}
+                            disabled={disabled}
+                            color={active ? "primary" : "default"}
+                            variant={active ? "filled" : "outlined"}
+                            onClick={() => !disabled && setHora(h)}
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  <div className="col-12">
+                    <Divider className="my-2" />
+                    <Typography sx={{ mb: 1, fontWeight: 700 }}>
+                      Barberos disponibles
+                    </Typography>
+                    <div className="row g-3">
+                      {barberos.map((b) => {
+                        const sel = barberoSel?.id === b.id;
+                        const initials =
+                          (b.nombre || "")
+                            .split(" ")
+                            .map((x) => x.charAt(0).toUpperCase())
+                            .slice(0, 2)
+                            .join("") || "B";
+                        return (
+                          <div className="col-12 col-md-6" key={b.id}>
+                            <Card
+                              variant="outlined"
+                              sx={{
+                                borderRadius: 3,
+                                borderColor: sel ? "primary.main" : "divider",
+                              }}
+                            >
+                              <CardActionArea
+                                onClick={() => setBarberoSel(b)}
+                                sx={{ p: 2 }}
+                              >
+                                <Stack
+                                  direction="row"
+                                  spacing={2}
+                                  alignItems="center"
+                                >
+                                  <Avatar>{initials}</Avatar>
+                                  <div className="d-flex flex-column">
+                                    <Typography sx={{ fontWeight: 800 }}>
+                                      {b.nombre}
+                                    </Typography>
+                                    <Typography
+                                      variant="body2"
+                                      color="text.secondary"
+                                    >
+                                      Apto para {servSel.length} servicio(s)
+                                    </Typography>
+                                  </div>
+                                  <Chip
+                                    label={sel ? "Seleccionado" : "Elegir"}
+                                    color={sel ? "primary" : "default"}
+                                    variant={sel ? "filled" : "outlined"}
+                                    className="ms-auto"
+                                  />
+                                </Stack>
+                              </CardActionArea>
+                            </Card>
+                          </div>
+                        );
+                      })}
+                      {!barberos.length && (
+                        <div className="col-12">
+                          <Typography color="text.secondary">
+                            Selecciona servicios y hora para ver disponibilidad.
+                          </Typography>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="col-12 d-flex justify-content-between">
+                    <Button onClick={prev}>Atrás</Button>
+                    <Button
+                      variant="contained"
+                      disabled={!hora || !barberoSel || servSel.length === 0}
+                      onClick={next}
+                    >
+                      Siguiente
+                    </Button>
+                  </div>
+                </div>
+              </Paper>
+            )}
+
+            {step === 2 && (
+              <Paper variant="outlined" sx={{ p: 2.5, borderRadius: 3 }}>
+                <div className="row g-3">
+                  <div className="col-12 col-md-6">
+                    <TextField
+                      label="Nombres"
+                      fullWidth
+                      value={cli.nombres}
+                      onChange={(e) =>
+                        setCli({ ...cli, nombres: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <TextField
+                      label="Apellidos"
+                      fullWidth
+                      value={cli.apellidos}
+                      onChange={(e) =>
+                        setCli({ ...cli, apellidos: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <TextField
+                      label="Correo electrónico"
+                      type="email"
+                      fullWidth
+                      value={cli.correo_electronico}
+                      onChange={(e) =>
+                        setCli({ ...cli, correo_electronico: e.target.value })
+                      }
+                    />
+                  </div>
+                  <div className="col-12 col-md-6">
+                    <TextField
+                      label="Teléfono"
+                      fullWidth
+                      value={cli.telefono}
+                      onChange={(e) =>
+                        setCli({ ...cli, telefono: e.target.value })
+                      }
+                    />
+                  </div>
+
+                  <div className="col-12 d-flex justify-content-between">
+                    <Button onClick={prev}>Atrás</Button>
+                    <Button
+                      variant="contained"
+                      disabled={
+                        !barberoSel ||
+                        !hora ||
+                        servSel.length === 0 ||
+                        (!cli.telefono && !cli.correo_electronico)
+                      }
+                      onClick={confirmar}
+                    >
+                      Confirmar reserva
+                    </Button>
+                  </div>
+                </div>
+              </Paper>
+            )}
+          </div>
+
+          <div className="col-12 col-lg-4">
+            <Resumen />
+          </div>
+        </div>
       )}
-      {step === 1 && (
-        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={4}>
-              <TextField
-                label="Fecha"
-                type="date"
-                fullWidth
-                value={fecha}
-                onChange={(e) => setFecha(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <TextField
-                label="Hora"
-                type="time"
-                fullWidth
-                value={hora}
-                onChange={(e) => setHora(e.target.value)}
-              />
-            </Grid>
-            <Grid item xs={12} md={4}>
-              <Autocomplete
-                options={barberos}
-                value={barberoSel}
-                getOptionLabel={(o) => o?.nombre || ""}
-                onChange={(_, v) => setBarberoSel(v)}
-                renderInput={(params) => (
-                  <TextField {...params} label="Barbero disponible" />
-                )}
-              />
-            </Grid>
-          </Grid>
-          <Divider sx={{ my: 2 }} />
-          <Stack direction="row" spacing={1} justifyContent="space-between">
-            <Button onClick={prev}>Atrás</Button>
-            <Button variant="contained" disabled={!barberoSel} onClick={next}>
-              Siguiente
-            </Button>
-          </Stack>
-        </Paper>
-      )}
-      {step === 2 && (
-        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
-          <Grid container spacing={2}>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Nombres"
-                fullWidth
-                value={cli.nombres}
-                onChange={(e) => setCli({ ...cli, nombres: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Apellidos"
-                fullWidth
-                value={cli.apellidos}
-                onChange={(e) => setCli({ ...cli, apellidos: e.target.value })}
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Correo electrónico"
-                type="email"
-                fullWidth
-                value={cli.correo_electronico}
-                onChange={(e) =>
-                  setCli({ ...cli, correo_electronico: e.target.value })
-                }
-              />
-            </Grid>
-            <Grid item xs={12} md={6}>
-              <TextField
-                label="Teléfono"
-                fullWidth
-                value={cli.telefono}
-                onChange={(e) => setCli({ ...cli, telefono: e.target.value })}
-              />
-            </Grid>
-          </Grid>
-          <Divider sx={{ my: 2 }} />
-          <Stack direction="row" spacing={1} justifyContent="space-between">
-            <Button onClick={prev}>Atrás</Button>
-            <Button
-              variant="contained"
-              disabled={!cli.telefono && !cli.correo_electronico}
-              onClick={confirmar}
-            >
-              Confirmar reserva
-            </Button>
-          </Stack>
-        </Paper>
-      )}
+
       {step === 3 && (
         <Paper
           variant="outlined"
-          sx={{ p: 3, borderRadius: 2, textAlign: "center" }}
+          sx={{ p: 3, borderRadius: 3, textAlign: "center" }}
         >
-          <Typography variant="h5" sx={{ mb: 1 }}>
+          <Typography variant="h5" sx={{ mb: 1, fontWeight: 900 }}>
             Reserva realizada
           </Typography>
           <Typography color="text.secondary" sx={{ mb: 2 }}>
-            Te hemos registrado en estado pendiente
+            Tu cita quedó en estado pendiente. Te enviaremos la confirmación.
           </Typography>
-          <Stack direction="row" spacing={1} justifyContent="center">
-            <Chip label={`${fecha} ${hora}`} />
-            <Chip label={barberoSel?.nombre || ""} />
-            <Chip label={`${servSel.length} servicios`} />
-          </Stack>
           <Stack
             direction="row"
             spacing={1}
             justifyContent="center"
-            sx={{ mt: 2 }}
+            sx={{ mb: 2 }}
           >
+            <Chip icon={<AccessTimeIcon />} label={`${fecha} ${hora}`} />
+            <Chip icon={<PersonIcon />} label={barberoSel?.nombre || ""} />
+            <Chip
+              icon={<ContentCutIcon />}
+              label={`${servSel.length} servicio(s)`}
+            />
+          </Stack>
+          <Stack direction="row" spacing={1} justifyContent="center">
             <Button variant="contained" href="/mis-reservas">
               Ver mis reservas
             </Button>
@@ -281,6 +513,7 @@ export default function Reservar() {
           </Stack>
         </Paper>
       )}
+
       <Snackbar
         open={snack.open}
         autoHideDuration={3000}

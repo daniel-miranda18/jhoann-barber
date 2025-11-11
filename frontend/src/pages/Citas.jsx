@@ -241,13 +241,13 @@ export default function Citas() {
       >
         <Box />
         {week.days.map((d) => (
-          <Box key={d.toString()} sx={{ textAlign: "center", fontWeight: 800 }}>
+          <Box key={d.toString()} sx={{ textAlign: "center", fontWeight: 900 }}>
             <a
               href="#"
               onClick={(e) => e.preventDefault()}
-              style={{ color: "#1976d2", textDecoration: "none" }}
+              style={{ color: "#ffb028ff", textDecoration: "none" }}
             >
-              {d.format("ddd, DD/MM")}
+              {d.format("dddd, DD")}
             </a>
           </Box>
         ))}
