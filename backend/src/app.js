@@ -14,6 +14,7 @@ import gastosRoutes from "./routes/gastos.routes.js";
 import ventasRoutes from "./routes/ventas.routes.js";
 import pagosRoutes from "./routes/pagos.routes.js";
 import auditoriaRoutes from "./routes/auditoria.routes.js";
+import citasRoutes from "./routes/citas.routes.js";
 import path from "path";
 import { auditar } from "./middlewares/auditoria.js";
 
@@ -62,7 +63,7 @@ app.use("/gastos", gastosRoutes);
 app.use("/ventas", ventasRoutes);
 app.use("/pagos", pagosRoutes);
 app.use("/auditoria", auditoriaRoutes);
-
+app.use("/citas", citasRoutes);
 app.get("/db/tables", async (req, res) => {
   try {
     const schema = req.query.schema || config.db.database;

@@ -31,6 +31,7 @@ import LogoutIcon from "@mui/icons-material/Logout";
 import PaidIcon from "@mui/icons-material/Paid";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import HistoryIcon from "@mui/icons-material/History";
+import EventIcon from "@mui/icons-material/Event";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   sesion,
@@ -261,6 +262,18 @@ export default function AppLayout() {
             <PointOfSaleIcon />
           </ListItemIcon>
           <ListItemText primary="Ventas" />
+        </ListItemButton>
+        <ListItemButton
+          selected={loc.pathname.startsWith("/citas")}
+          onClick={() => {
+            nav("/citas");
+            setMobileOpen(false);
+          }}
+        >
+          <ListItemIcon>
+            <EventIcon />
+          </ListItemIcon>
+          <ListItemText primary="Citas" />
         </ListItemButton>
         <ListItemButton
           selected={loc.pathname.startsWith("/auditoria")}

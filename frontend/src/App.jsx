@@ -18,6 +18,7 @@ import Barberos from "./pages/Barberos";
 import Gastos from "./pages/Gastos.jsx";
 import Pagos from "./pages/Pagos.jsx";
 import Auditoria from "./pages/Auditoria.jsx";
+import Citas from "./pages/Citas.jsx";
 
 function PublicShell() {
   return (
@@ -52,6 +53,7 @@ export default function App() {
         <Route path="/barberos" element={<Barberos />} />
         <Route path="/gastos" element={<Gastos />} />
         <Route path="/pagos" element={<Pagos />} />
+        <Route path="/citas" element={<Citas />} />
         <Route path="/auditoria" element={<Auditoria />} />
       </Route>
     </Routes>
