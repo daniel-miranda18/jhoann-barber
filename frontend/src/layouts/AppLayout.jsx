@@ -33,6 +33,7 @@ import PaidIcon from "@mui/icons-material/Paid";
 import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import HistoryIcon from "@mui/icons-material/History";
 import EventIcon from "@mui/icons-material/Event";
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   sesion,
@@ -110,11 +111,27 @@ export default function AppLayout() {
   }
 
   const claves = (rol?.data?.permisos || []).map((p) => p.clave);
+
   const puedeUsuarios =
     claves.includes("gestionar_usuarios") || claves.includes("ver_usuarios");
   const puedeRoles =
     claves.includes("gestionar_roles") || claves.includes("ver_roles");
-  const puedePermisos = true;
+  const puedePermisos =
+    claves.includes("gestionar_permisos") || claves.includes("ver_permisos");
+  const puedeServicios =
+    claves.includes("gestionar_servicios") || claves.includes("ver_servicios");
+  const puedeProductos =
+    claves.includes("gestionar_productos") || claves.includes("ver_productos");
+  const puedeBarberos =
+    claves.includes("gestionar_barberos") || claves.includes("ver_barberos");
+  const puedeGastos =
+    claves.includes("gestionar_gastos") || claves.includes("ver_gastos");
+  const puedeVentas =
+    claves.includes("gestionar_ventas") || claves.includes("ver_ventas");
+  const puedeCitas =
+    claves.includes("gestionar_citas") || claves.includes("ver_citas");
+  const puedeAuditoria =
+    claves.includes("gestionar_auditoria") || claves.includes("ver_auditoria");
 
   const btnSx = { pl: 2 };
   const drawer = (
@@ -204,90 +221,105 @@ export default function AppLayout() {
             </Collapse>
           </>
         )}
-        <ListItemButton
-          selected={loc.pathname.startsWith("/barberos")}
-          onClick={() => {
-            nav("/barberos");
-            setMobileOpen(false);
-          }}
-        >
-          <ListItemIcon>
-            <PersonIcon />
-          </ListItemIcon>
-          <ListItemText primary="Barberos" />
-        </ListItemButton>
-        <ListItemButton
-          selected={loc.pathname.startsWith("/servicios")}
-          onClick={() => {
-            nav("/servicios");
-            setMobileOpen(false);
-          }}
-        >
-          <ListItemIcon>
-            <ContentCutIcon />
-          </ListItemIcon>
-          <ListItemText primary="Servicios" />
-        </ListItemButton>
-        <ListItemButton
-          selected={loc.pathname.startsWith("/productos")}
-          onClick={() => {
-            nav("/productos");
-            setMobileOpen(false);
-          }}
-        >
-          <ListItemIcon>
-            <ShoppingBagIcon />
-          </ListItemIcon>
-          <ListItemText primary="Productos" />
-        </ListItemButton>
-        <ListItemButton
-          selected={loc.pathname.startsWith("/gastos")}
-          onClick={() => {
-            nav("/gastos");
-            setMobileOpen(false);
-          }}
-        >
-          <ListItemIcon>
-            <PaidIcon />
-          </ListItemIcon>
-          <ListItemText primary="Gastos" />
-        </ListItemButton>
-        <ListItemButton
-          selected={loc.pathname.startsWith("/pagos")}
-          onClick={() => {
-            nav("/pagos");
-            setMobileOpen(false);
-          }}
-        >
-          <ListItemIcon>
-            <PointOfSaleIcon />
-          </ListItemIcon>
-          <ListItemText primary="Ventas" />
-        </ListItemButton>
-        <ListItemButton
-          selected={loc.pathname.startsWith("/citas")}
-          onClick={() => {
-            nav("/citas");
-            setMobileOpen(false);
-          }}
-        >
-          <ListItemIcon>
-            <EventIcon />
-          </ListItemIcon>
-          <ListItemText primary="Citas" />
-        </ListItemButton>
-        <ListItemButton
-          selected={loc.pathname.startsWith("/auditoria")}
-          onClick={() => {
-            nav("/auditoria");
-            setMobileOpen(false);
-          }}
-        >
-          <ListItemIcon>
-            <HistoryIcon />
-          </ListItemIcon>
-          <ListItemText primary="Auditoría" />
-        </ListItemButton>
+
+        {puedeBarberos && (
+          <ListItemButton
+            selected={loc.pathname.startsWith("/barberos")}
+            onClick={() => {
+              nav("/barberos");
+              setMobileOpen(false);
+            }}
+          >
+            <ListItemIcon>
+              <PersonIcon />
+            </ListItemIcon>
+            <ListItemText primary="Barberos" />
+          </ListItemButton>
+        )}
+        {puedeServicios && (
+          <ListItemButton
+            selected={loc.pathname.startsWith("/servicios")}
+            onClick={() => {
+              nav("/servicios");
+              setMobileOpen(false);
+            }}
+          >
+            <ListItemIcon>
+              <ContentCutIcon />
+            </ListItemIcon>
+            <ListItemText primary="Servicios" />
+          </ListItemButton>
+        )}
+        {puedeProductos && (
+          <ListItemButton
+            selected={loc.pathname.startsWith("/productos")}
+            onClick={() => {
+              nav("/productos");
+              setMobileOpen(false);
+            }}
+          >
+            <ListItemIcon>
+              <ShoppingBagIcon />
+            </ListItemIcon>
+            <ListItemText primary="Productos" />
+          </ListItemButton>
+        )}
+        {puedeGastos && (
+          <ListItemButton
+            selected={loc.pathname.startsWith("/gastos")}
+            onClick={() => {
+              nav("/gastos");
+              setMobileOpen(false);
+            }}
+          >
+            <ListItemIcon>
+              <PaidIcon />
+            </ListItemIcon>
+            <ListItemText primary="Gastos" />
+          </ListItemButton>
+        )}
+        {puedeVentas && (
+          <ListItemButton
+            selected={loc.pathname.startsWith("/pagos")}
+            onClick={() => {
+              nav("/pagos");
+              setMobileOpen(false);
+            }}
+          >
+            <ListItemIcon>
+              <PointOfSaleIcon />
+            </ListItemIcon>
+            <ListItemText primary="Ventas" />
+          </ListItemButton>
+        )}
+        {puedeCitas && (
+          <ListItemButton
+            selected={loc.pathname.startsWith("/citas")}
+            onClick={() => {
+              nav("/citas");
+              setMobileOpen(false);
+            }}
+          >
+            <ListItemIcon>
+              <EventIcon />
+            </ListItemIcon>
+            <ListItemText primary="Citas" />
+          </ListItemButton>
+        )}
+        {puedeAuditoria && (
+          <ListItemButton
+            selected={loc.pathname.startsWith("/auditoria")}
+            onClick={() => {
+              nav("/auditoria");
+              setMobileOpen(false);
+            }}
+          >
+            <ListItemIcon>
+              <HistoryIcon />
+            </ListItemIcon>
+            <ListItemText primary="Auditoría" />
+          </ListItemButton>
+        )}
       </List>
       <Box sx={{ flexGrow: 1 }} />
       <Divider />
@@ -341,6 +373,13 @@ export default function AppLayout() {
               onClose={() => setAnchorEl(null)}
             >
               <MenuItem disabled>{usuario?.correo}</MenuItem>
+              <MenuItem onClick={() => nav("/perfil")}>
+                <AccountCircleIcon
+                  fontSize="small"
+                  style={{ marginRight: 8 }}
+                />
+                Perfil
+              </MenuItem>
               <MenuItem onClick={handleLogout}>
                 <LogoutIcon fontSize="small" style={{ marginRight: 8 }} />
                 Cerrar sesión

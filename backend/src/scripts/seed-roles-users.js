@@ -132,7 +132,26 @@ async function syncPermisosARol(rolId, claves) {
   }
 }
 
-async function ensureUsuario({ correo, pinPlano, nombres, apellidos, rolId }) {
+async function asignarPermisosAUsuario(usuarioId, permisos) {
+  const permisosIds = await idsPermisosPorClave(permisos);
+  for (const clave of permisos) {
+    const permisoId = permisosIds.get(clave);
+    if (!permisoId) continue;
+    await q(
+      "INSERT INTO usuario_permiso (usuario_id, permiso_id, esta_activo, creado_en, actualizado_en) VALUES (?, ?, 1, NOW(), NOW()) ON DUPLICATE KEY UPDATE esta_activo=VALUES(esta_activo), actualizado_por=VALUES(actualizado_por)",
+      [usuarioId, permisoId]
+    );
+  }
+}
+
+async function ensureUsuario({
+  correo,
+  pinPlano,
+  nombres,
+  apellidos,
+  rolId,
+  permisos,
+}) {
   const ex = await q(
     "SELECT id FROM usuarios WHERE correo_electronico=? LIMIT 1",
     [correo]
@@ -141,9 +160,10 @@ async function ensureUsuario({ correo, pinPlano, nombres, apellidos, rolId }) {
     const uid = ex[0].id;
     await q("UPDATE usuarios SET esta_activo=1 WHERE id=?", [uid]);
     await q(
-      "INSERT INTO usuario_rol (usuario_id,rol_id,esta_activo,creado_por,actualizado_por) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE esta_activo=VALUES(esta_activo), actualizado_por=VALUES(actualizado_por)",
+      "INSERT INTO usuario_rol (usuario_id, rol_id, esta_activo, creado_por, actualizado_por) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE esta_activo=VALUES(esta_activo), actualizado_por=VALUES(actualizado_por)",
       [uid, rolId, 1, null, null]
     );
+    await asignarPermisosAUsuario(uid, permisos);
     return uid;
   }
   const hash = await bcrypt.hash(pinPlano, 10);
@@ -157,9 +177,10 @@ async function ensureUsuario({ correo, pinPlano, nombres, apellidos, rolId }) {
   );
   const uid = u2[0].id;
   await q(
-    "INSERT INTO usuario_rol (usuario_id,rol_id,esta_activo,creado_por,actualizado_por) VALUES (?,?,?,?,?)",
+    "INSERT INTO usuario_rol (usuario_id, rol_id, esta_activo, creado_por, actualizado_por) VALUES (?,?,?,?,?)",
     [uid, rolId, 1, null, null]
   );
+  await asignarPermisosAUsuario(uid, permisos);
   return uid;
 }
 
@@ -173,7 +194,11 @@ async function main() {
       await syncPermisosARol(rolesIds[nombre], permisos[nombre]);
     }
     for (const u of usuariosSeed) {
-      await ensureUsuario({ ...u, rolId: rolesIds[u.rol] });
+      await ensureUsuario({
+        ...u,
+        rolId: rolesIds[u.rol],
+        permisos: permisos[u.rol],
+      });
     }
     console.log("Listo. Usuarios y roles creados.");
     console.log("Admin -> admin@local / 123456");

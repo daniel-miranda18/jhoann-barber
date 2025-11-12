@@ -64,13 +64,13 @@ function ProductoForm({ open, onClose, onSubmit, initial, notify }) {
   const [descripcion, setDescripcion] = useState(initial?.descripcion || "");
   const [sku, setSku] = useState(initial?.sku || "");
   const [precio_unitario, setPrecio] = useState(
-    typeof initial?.precio_unitario === "number" ? initial.precio_unitario : 0
+    initial?.precio_unitario ? String(initial.precio_unitario) : ""
   );
   const [costo_unitario, setCosto] = useState(
-    initial?.costo_unitario != null ? Number(initial.costo_unitario) : ""
+    initial?.costo_unitario ? String(initial.costo_unitario) : ""
   );
   const [stock, setStock] = useState(
-    typeof initial?.stock === "number" ? initial.stock : 0
+    initial?.stock ? String(initial.stock) : ""
   );
   const [esta_activo, setActivo] = useState(
     typeof initial?.esta_activo === "number" ? initial.esta_activo === 1 : true
@@ -81,17 +81,19 @@ function ProductoForm({ open, onClose, onSubmit, initial, notify }) {
   const [adding, setAdding] = useState(false);
   const [cargandoDetalle, setCargandoDetalle] = useState(false);
 
+  const [touched, setTouched] = useState({
+    nombre: false,
+    precio_unitario: false,
+    stock: false,
+  });
+
   useEffect(() => {
     setNombre(initial?.nombre || "");
     setDescripcion(initial?.descripcion || "");
     setSku(initial?.sku || "");
-    setPrecio(
-      typeof initial?.precio_unitario === "number" ? initial.precio_unitario : 0
-    );
-    setCosto(
-      initial?.costo_unitario != null ? Number(initial.costo_unitario) : ""
-    );
-    setStock(typeof initial?.stock === "number" ? initial.stock : 0);
+    setPrecio(initial?.precio_unitario ? String(initial.precio_unitario) : "");
+    setCosto(initial?.costo_unitario ? String(initial.costo_unitario) : "");
+    setStock(initial?.stock ? String(initial.stock) : "");
     setActivo(
       typeof initial?.esta_activo === "number"
         ? initial.esta_activo === 1
@@ -99,6 +101,7 @@ function ProductoForm({ open, onClose, onSubmit, initial, notify }) {
     );
     setFile(null);
     setDetalle(null);
+    setTouched({ nombre: false, precio_unitario: false, stock: false });
   }, [initial, open]);
 
   async function loadDetalle() {
@@ -112,13 +115,9 @@ function ProductoForm({ open, onClose, onSubmit, initial, notify }) {
         setNombre(x.nombre || "");
         setDescripcion(x.descripcion || "");
         setSku(x.sku || "");
-        setPrecio(
-          typeof x.precio_unitario === "number"
-            ? x.precio_unitario
-            : Number(x.precio_unitario || 0)
-        );
-        setCosto(x.costo_unitario != null ? Number(x.costo_unitario) : "");
-        setStock(typeof x.stock === "number" ? x.stock : Number(x.stock || 0));
+        setPrecio(x.precio_unitario ? String(x.precio_unitario) : "");
+        setCosto(x.costo_unitario ? String(x.costo_unitario) : "");
+        setStock(x.stock ? String(x.stock) : "");
         setActivo(!!x.esta_activo);
       }
     } finally {
@@ -169,11 +168,51 @@ function ProductoForm({ open, onClose, onSubmit, initial, notify }) {
     notify?.("Foto principal eliminada", "success");
   }
 
-  const nombreInvalido = !nombre.trim();
+  // Validaciones solo si el campo ha sido tocado
+  const nombreInvalido = touched.nombre && !nombre.trim();
   const precioInvalido =
-    isNaN(Number(precio_unitario)) || Number(precio_unitario) < 0;
-  const stockInvalido = isNaN(Number(stock)) || Number(stock) < 0;
+    touched.precio_unitario &&
+    (precio_unitario === "" ||
+      isNaN(Number(precio_unitario)) ||
+      Number(precio_unitario) < 0);
+  const stockInvalido =
+    touched.stock &&
+    (stock === "" || isNaN(Number(stock)) || Number(stock) < 0);
+
   const formInvalido = nombreInvalido || precioInvalido || stockInvalido;
+
+  // Handlers para marcar como tocado
+  const handleNombreChange = (e) => {
+    setNombre(e.target.value);
+    if (!touched.nombre) setTouched((p) => ({ ...p, nombre: true }));
+  };
+
+  const handlePrecioChange = (e) => {
+    const val = e.target.value;
+    // Permitir solo números y punto decimal
+    if (val === "" || /^\d*\.?\d*$/.test(val)) {
+      setPrecio(val);
+    }
+    if (!touched.precio_unitario)
+      setTouched((p) => ({ ...p, precio_unitario: true }));
+  };
+
+  const handleCostoChange = (e) => {
+    const val = e.target.value;
+    // Permitir solo números y punto decimal
+    if (val === "" || /^\d*\.?\d*$/.test(val)) {
+      setCosto(val);
+    }
+  };
+
+  const handleStockChange = (e) => {
+    const val = e.target.value;
+    // Permitir solo números enteros
+    if (val === "" || /^\d+$/.test(val)) {
+      setStock(val);
+    }
+    if (!touched.stock) setTouched((p) => ({ ...p, stock: true }));
+  };
 
   async function submit() {
     setSaving(true);
@@ -216,9 +255,10 @@ function ProductoForm({ open, onClose, onSubmit, initial, notify }) {
                 fullWidth
                 label="Nombre"
                 value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
+                onChange={handleNombreChange}
+                onBlur={() => setTouched((p) => ({ ...p, nombre: true }))}
                 error={nombreInvalido}
-                helperText={nombreInvalido ? "Requerido" : ""}
+                helperText={nombreInvalido ? "El nombre es requerido" : ""}
               />
             </div>
             <div className="col-12">
@@ -247,11 +287,17 @@ function ProductoForm({ open, onClose, onSubmit, initial, notify }) {
                 fullWidth
                 label="Precio en Venta"
                 type="number"
+                inputMode="decimal"
                 inputProps={{ min: 0, step: "0.01" }}
                 value={precio_unitario}
-                onChange={(e) => setPrecio(e.target.value)}
+                onChange={handlePrecioChange}
+                onBlur={() =>
+                  setTouched((p) => ({ ...p, precio_unitario: true }))
+                }
                 error={precioInvalido}
-                helperText={precioInvalido ? "Monto inválido" : ""}
+                helperText={
+                  precioInvalido ? "Precio requerido y válido (≥0)" : ""
+                }
               />
             </div>
             <div className="col-6 col-md-3">
@@ -260,9 +306,10 @@ function ProductoForm({ open, onClose, onSubmit, initial, notify }) {
                 fullWidth
                 label="Costo"
                 type="number"
+                inputMode="decimal"
                 inputProps={{ min: 0, step: "0.01" }}
                 value={costo_unitario}
-                onChange={(e) => setCosto(e.target.value)}
+                onChange={handleCostoChange}
               />
             </div>
             <div className="col-6 col-md-3">
@@ -271,11 +318,15 @@ function ProductoForm({ open, onClose, onSubmit, initial, notify }) {
                 fullWidth
                 label="Stock"
                 type="number"
+                inputMode="numeric"
                 inputProps={{ min: 0, step: "1" }}
                 value={stock}
-                onChange={(e) => setStock(e.target.value)}
+                onChange={handleStockChange}
+                onBlur={() => setTouched((p) => ({ ...p, stock: true }))}
                 error={stockInvalido}
-                helperText={stockInvalido ? "Cantidad inválida" : ""}
+                helperText={
+                  stockInvalido ? "Stock requerido y válido (≥0)" : ""
+                }
               />
             </div>
             <div className="col-6 col-md-9 d-flex align-items-center">

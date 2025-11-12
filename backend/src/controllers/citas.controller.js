@@ -38,10 +38,10 @@ function diaSemana(fecha) {
 function dentroDeTurnoSql() {
   return `
     SELECT COUNT(1) AS n
-    FROM barbero_horario h
+    FROM barbero_horarios h
     WHERE h.barbero_id=? AND h.esta_activo=1 AND h.dia_semana=?
-      AND TIME(?) >= h.inicio
-      AND ADDTIME(TIME(?), SEC_TO_TIME(?*60)) <= h.fin
+      AND TIME(?) >= h.hora_inicio
+      AND ADDTIME(TIME(?), SEC_TO_TIME(?*60)) <= h.hora_fin
   `;
 }
 
@@ -49,7 +49,7 @@ function cubreServiciosSql(idsLen) {
   const placeholders = Array(idsLen).fill("?").join(",");
   return `
     SELECT COUNT(1) AS n
-    FROM barbero_servicio bs
+    FROM barbero_servicios bs
     WHERE bs.barbero_id=? AND bs.esta_activo=1 AND bs.servicio_id IN (${placeholders})
   `;
 }

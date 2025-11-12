@@ -1,4 +1,6 @@
 import { Router } from "express";
+import { requireAuth } from "../middlewares/auth.js";
+import { requierePermiso } from "../middlewares/permisos.js";
 import {
   crearProducto,
   listarProductos,
@@ -13,13 +15,39 @@ import { uploadProductos } from "../lib/upload.js";
 
 const r = Router();
 
-r.post("/", crearProducto);
-r.get("/", listarProductos);
-r.get("/:id", detalleProducto);
-r.put("/:id", actualizarProducto);
-r.delete("/:id", eliminarProducto);
-r.post("/:id/fotos", uploadProductos.array("fotos", 10), agregarFotos);
-r.delete("/:id/fotos/:fotoId", eliminarFoto);
-r.patch("/:id/fotos/:fotoId/principal", setFotoPrincipal);
+r.post("/", requireAuth, requierePermiso("gestionar_productos"), crearProducto);
+r.get("/", requireAuth, requierePermiso("ver_productos"), listarProductos);
+r.get("/:id", requireAuth, requierePermiso("ver_productos"), detalleProducto);
+r.put(
+  "/:id",
+  requireAuth,
+  requierePermiso("gestionar_productos"),
+  actualizarProducto
+);
+r.delete(
+  "/:id",
+  requireAuth,
+  requierePermiso("gestionar_productos"),
+  eliminarProducto
+);
+r.post(
+  "/:id/fotos",
+  requireAuth,
+  uploadProductos.array("fotos", 10),
+  requierePermiso("gestionar_productos"),
+  agregarFotos
+);
+r.delete(
+  "/:id/fotos/:fotoId",
+  requireAuth,
+  requierePermiso("gestionar_productos"),
+  eliminarFoto
+);
+r.patch(
+  "/:id/fotos/:fotoId/principal",
+  requireAuth,
+  requierePermiso("gestionar_productos"),
+  setFotoPrincipal
+);
 
 export default r;

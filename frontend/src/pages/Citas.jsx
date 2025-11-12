@@ -123,19 +123,38 @@ export default function Citas() {
   }
 
   async function mark(id, est) {
-    await actualizarEstadoCita(id, est);
-    setSnack({ open: true, msg: "Actualizado", sev: "success" });
-    setSel(null);
-    load();
+    try {
+      await actualizarEstadoCita(id, est);
+      setSnack({ open: true, msg: "Actualizado", sev: "success" });
+      setSel(null);
+      load();
+    } catch (e) {
+      console.error(e);
+      setSnack({
+        open: true,
+        msg: e?.message || (e?.mensaje ? e.mensaje : "Error"),
+        sev: "error",
+      });
+    }
   }
 
   async function eliminar() {
     if (!sel) return;
-    await eliminarCita(sel.id);
-    setSnack({ open: true, msg: "Eliminado", sev: "success" });
-    setConfirmDel(false);
-    setSel(null);
-    load();
+    try {
+      await eliminarCita(sel.id);
+      setSnack({ open: true, msg: "Eliminado", sev: "success" });
+      setConfirmDel(false);
+      setSel(null);
+      load();
+    } catch (e) {
+      console.error(e);
+      setSnack({
+        open: true,
+        msg: e?.message || (e?.mensaje ? e.mensaje : "Error"),
+        sev: "error",
+      });
+      setConfirmDel(false);
+    }
   }
 
   function Header() {

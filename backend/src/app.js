@@ -15,8 +15,11 @@ import ventasRoutes from "./routes/ventas.routes.js";
 import pagosRoutes from "./routes/pagos.routes.js";
 import auditoriaRoutes from "./routes/auditoria.routes.js";
 import citasRoutes from "./routes/citas.routes.js";
+import perfilRoutes from "./routes/perfil.routes.js";
+import contactoRoutes from "./routes/contacto.routes.js";
 import path from "path";
 import { auditar } from "./middlewares/auditoria.js";
+import dashboardRoutes from "./routes/dashboard.routes.js";
 
 const app = express();
 
@@ -37,7 +40,6 @@ app.use(
   })
 );
 
-app.use(auditar());
 app.get("/health", (_req, res) => res.json({ ok: true }));
 app.get("/db/health", async (_req, res) => {
   try {
@@ -53,6 +55,8 @@ app.get("/db/health", async (_req, res) => {
 });
 
 app.use("/auth", authRoutes);
+app.use(auditar());
+app.use("/perfil", perfilRoutes);
 app.use("/acl", aclRoutes);
 app.use("/usuarios", usuariosRoutes);
 app.use("/servicios", serviciosRoutes);
@@ -64,6 +68,9 @@ app.use("/ventas", ventasRoutes);
 app.use("/pagos", pagosRoutes);
 app.use("/auditoria", auditoriaRoutes);
 app.use("/citas", citasRoutes);
+app.use("/contacto", contactoRoutes);
+app.use("/dashboard", dashboardRoutes);
+
 app.get("/db/tables", async (req, res) => {
   try {
     const schema = req.query.schema || config.db.database;

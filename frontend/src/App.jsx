@@ -19,6 +19,7 @@ import Gastos from "./pages/Gastos.jsx";
 import Pagos from "./pages/Pagos.jsx";
 import Auditoria from "./pages/Auditoria.jsx";
 import Citas from "./pages/Citas.jsx";
+import Perfil from "./pages/Perfil";
 
 function PublicShell() {
   return (
@@ -44,6 +45,7 @@ export default function App() {
       <Route path="/login" element={<Login />} />
 
       <Route element={<AppLayout />}>
+        <Route path="perfil" element={<Perfil />} />
         <Route path="/dashboard" element={<Dashboard />} />
         <Route path="/usuarios" element={<Usuarios />} />
         <Route path="/roles" element={<Roles />} />

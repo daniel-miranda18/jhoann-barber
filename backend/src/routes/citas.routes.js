@@ -1,5 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middlewares/auth.js";
+import { requierePermiso } from "../middlewares/permisos.js";
 import {
   serviciosActivos,
   barberosDisponibles,
@@ -16,9 +17,9 @@ r.get("/servicios", serviciosActivos);
 r.get("/barberos-disponibles", barberosDisponibles);
 r.post("/", crearCita);
 
-r.get("/admin/semana", requireAuth, citasSemana);
-r.patch("/:id/estado", requireAuth, actualizarEstadoCita);
-r.delete("/:id", requireAuth, eliminarCita);
+r.get("/admin/semana", requireAuth, requierePermiso("ver_citas"), citasSemana);
+r.patch("/:id/estado", actualizarEstadoCita);
+r.delete("/:id", eliminarCita);
 
 r.get("/mias", misCitas);
 

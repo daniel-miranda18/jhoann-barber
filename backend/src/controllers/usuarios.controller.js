@@ -151,7 +151,7 @@ export async function registrarUsuario(req, res) {
         d.nombres ?? null,
         d.apellidos ?? null,
         d.telefono ?? null,
-        d.esta_activo ?? true ? 1 : 0,
+        d.esta_activo !== false ? 1 : 0,
         req.usuario?.sub || null,
         req.usuario?.sub || null,
       ]
@@ -186,7 +186,9 @@ export async function registrarUsuario(req, res) {
         texto: `Bienvenido. Correo: ${d.correo_electronico} PIN: ${pinPlano} Rol: ${rol.nombre} Acceso: ${config.appUrl}`,
       });
       correoEnviado = true;
-    } catch {}
+    } catch (mailErr) {
+      console.error("Error enviando correo:", mailErr);
+    }
 
     return res.status(201).json({
       mensaje: "Usuario registrado",
@@ -196,7 +198,7 @@ export async function registrarUsuario(req, res) {
         nombres: d.nombres ?? null,
         apellidos: d.apellidos ?? null,
         telefono: d.telefono ?? null,
-        esta_activo: d.esta_activo ?? true,
+        esta_activo: d.esta_activo !== false,
       },
       rol: { id: rol.id, nombre: rol.nombre },
       permisos_desde_rol: permsRol.map((x) => x.clave).sort(),
@@ -204,28 +206,42 @@ export async function registrarUsuario(req, res) {
     });
   } catch (e) {
     await conn.rollback();
+    console.error("Error registrar usuario:", e);
     return res.status(400).json({ mensaje: e.message || "Error al registrar" });
   } finally {
     conn.release();
   }
 }
 
-const updateSchema = z.object({
-  correo_electronico: z.string().email().optional(),
-  nombres: z.string().max(100).nullable().optional(),
-  apellidos: z.string().max(100).nullable().optional(),
-  telefono: z.string().max(30).nullable().optional(),
-  esta_activo: z.boolean().optional(),
-  rol_id: z.number().int().positive().optional(),
-  rol_nombre: z.string().max(100).optional(),
-});
+const updateSchema = z
+  .object({
+    correo_electronico: z.string().email().optional(),
+    nombres: z.string().max(100).optional(),
+    apellidos: z.string().max(100).optional(),
+    telefono: z.string().max(30).optional().nullable(),
+    esta_activo: z.boolean().optional(),
+    rol_id: z.number().int().positive().optional(),
+    rol_nombre: z.string().optional(),
+  })
+  .strict();
 
 export async function actualizarUsuario(req, res) {
   const id = Number(req.params.id);
   if (!id) return res.status(404).json({ mensaje: "No encontrado" });
+
+  console.log("Body recibido:", req.body);
+
   const p = updateSchema.safeParse(req.body || {});
-  if (!p.success) return res.status(422).json({ mensaje: "Datos inválidos" });
+  if (!p.success) {
+    console.log("Errores validación:", p.error.flatten());
+    return res.status(422).json({
+      mensaje: "Datos inválidos",
+      errores: p.error.flatten(),
+    });
+  }
+
   const d = p.data;
+
   if (d.correo_electronico) {
     const ex = await query(
       "SELECT id FROM usuarios WHERE correo_electronico=? AND id<>? LIMIT 1",
@@ -234,8 +250,10 @@ export async function actualizarUsuario(req, res) {
     if (ex.length)
       return res.status(409).json({ mensaje: "Correo ya registrado" });
   }
+
   const esta_activo_val =
     typeof d.esta_activo === "boolean" ? (d.esta_activo ? 1 : 0) : null;
+
   await pool.execute(
     "UPDATE usuarios SET correo_electronico=COALESCE(?,correo_electronico), nombres=COALESCE(?,nombres), apellidos=COALESCE(?,apellidos), telefono=COALESCE(?,telefono), esta_activo=COALESCE(?,esta_activo), actualizado_por=? WHERE id=?",
     [
@@ -248,37 +266,78 @@ export async function actualizarUsuario(req, res) {
       id,
     ]
   );
+
   if (d.rol_id || d.rol_nombre) {
-    const [conn] = await Promise.all([pool.getConnection()]);
+    const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
+
       const rol = await resolverRol(conn, {
         rol_id: d.rol_id,
         rol_nombre: d.rol_nombre,
       });
+
       await conn.execute(
-        "UPDATE usuario_rol SET esta_activo=0, actualizado_por=? WHERE usuario_id=?",
+        "UPDATE usuario_rol SET esta_activo=0, actualizado_por=? WHERE usuario_id=? AND rol_id<>?",
+        [req.usuario?.sub || null, id, rol.id]
+      );
+
+      await conn.execute(
+        "INSERT INTO usuario_rol (usuario_id,rol_id,esta_activo,creado_por,actualizado_por) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE esta_activo=1, actualizado_por=?",
+        [
+          id,
+          rol.id,
+          1,
+          req.usuario?.sub || null,
+          req.usuario?.sub || null,
+          req.usuario?.sub || null,
+        ]
+      );
+
+      await conn.execute(
+        "UPDATE usuario_permiso SET esta_activo=0, actualizado_por=? WHERE usuario_id=?",
         [req.usuario?.sub || null, id]
       );
-      await conn.execute(
-        "INSERT INTO usuario_rol (usuario_id,rol_id,esta_activo,creado_por,actualizado_por) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE esta_activo=VALUES(esta_activo), actualizado_por=VALUES(actualizado_por)",
-        [id, rol.id, 1, req.usuario?.sub || null, req.usuario?.sub || null]
+
+      const [permisosRol] = await conn.execute(
+        `SELECT rp.permiso_id FROM rol_permiso rp 
+         WHERE rp.rol_id=? AND rp.esta_activo=1`,
+        [rol.id]
       );
+
+      for (const perm of permisosRol) {
+        await conn.execute(
+          "INSERT INTO usuario_permiso (usuario_id,permiso_id,esta_activo,creado_por,actualizado_por) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE esta_activo=1, actualizado_por=?",
+          [
+            id,
+            perm.permiso_id,
+            1,
+            req.usuario?.sub || null,
+            req.usuario?.sub || null,
+            req.usuario?.sub || null,
+          ]
+        );
+      }
+
       await conn.commit();
-      conn.release();
     } catch (e) {
-      try {
-      } catch {}
+      await conn.rollback();
+      console.error("Error actualizar rol:", e);
       return res
         .status(400)
         .json({ mensaje: e.message || "Error al actualizar rol" });
+    } finally {
+      conn.release();
     }
   }
+
   const [row] = await pool.execute(
-    `SELECT id,correo_electronico,nombres,apellidos,telefono,esta_activo FROM usuarios WHERE id=?`,
+    `SELECT id, correo_electronico, nombres, apellidos, telefono, esta_activo FROM usuarios WHERE id=?`,
     [id]
   );
+
   if (!row.length) return res.status(404).json({ mensaje: "No encontrado" });
+
   res.json({ mensaje: "Actualizado", data: row[0] });
 }
 

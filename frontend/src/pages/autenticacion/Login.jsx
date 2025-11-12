@@ -25,6 +25,7 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const nav = useNavigate();
+
   async function handleSubmit(e) {
     e.preventDefault();
     setError("");
@@ -101,7 +102,6 @@ export default function Login() {
             </Typography>
           </Box>
         </Box>
-
         <Box sx={{ p: { xs: 3, md: 5 } }}>
           <form onSubmit={handleSubmit}>
             <Stack spacing={2.2}>

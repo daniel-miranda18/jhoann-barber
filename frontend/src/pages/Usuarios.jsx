@@ -69,6 +69,7 @@ function UsuarioForm({ open, onClose, onSubmit, initial, roles }) {
     initial?.rol_nombre || initial?.rol?.nombre || ""
   );
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState({});
 
   useEffect(() => {
     setCorreo(initial?.correo_electronico || "");
@@ -81,16 +82,40 @@ function UsuarioForm({ open, onClose, onSubmit, initial, roles }) {
         : true
     );
     setRolNombre(initial?.rol_nombre || initial?.rol?.nombre || "");
+    setErrors({});
   }, [initial, open]);
 
+  function validar() {
+    const newErrors = {};
+
+    if (!correo_electronico.trim()) {
+      newErrors.correo_electronico = "El correo es requerido";
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(correo_electronico)) {
+      newErrors.correo_electronico = "Correo inválido";
+    }
+
+    if (!nombres.trim()) {
+      newErrors.nombres = "Los nombres son requeridos";
+    }
+
+    if (!rol_nombre) {
+      newErrors.rol_nombre = "Debe seleccionar un rol";
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  }
+
   async function submit() {
+    if (!validar()) return;
+
     setSaving(true);
     try {
       await onSubmit({
-        correo_electronico,
-        nombres,
-        apellidos,
-        telefono,
+        correo_electronico: correo_electronico.trim(),
+        nombres: nombres.trim() || null,
+        apellidos: apellidos.trim() || null,
+        telefono: telefono.trim() || null,
         esta_activo,
         rol_nombre,
       });
@@ -113,6 +138,8 @@ function UsuarioForm({ open, onClose, onSubmit, initial, roles }) {
                 type="email"
                 value={correo_electronico}
                 onChange={(e) => setCorreo(e.target.value)}
+                error={!!errors.correo_electronico}
+                helperText={errors.correo_electronico}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -129,6 +156,8 @@ function UsuarioForm({ open, onClose, onSubmit, initial, roles }) {
                 label="Nombres"
                 value={nombres}
                 onChange={(e) => setNombres(e.target.value)}
+                error={!!errors.nombres}
+                helperText={errors.nombres}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -164,7 +193,7 @@ function UsuarioForm({ open, onClose, onSubmit, initial, roles }) {
               />
             </div>
             <div className="col-12">
-              <FormControl fullWidth size="small">
+              <FormControl fullWidth size="small" error={!!errors.rol_nombre}>
                 <InputLabel>Rol</InputLabel>
                 <Select
                   label="Rol"
@@ -178,6 +207,11 @@ function UsuarioForm({ open, onClose, onSubmit, initial, roles }) {
                   ))}
                 </Select>
               </FormControl>
+              {errors.rol_nombre && (
+                <Typography variant="caption" color="error">
+                  {errors.rol_nombre}
+                </Typography>
+              )}
             </div>
             <div className="col-12">
               <FormControlLabel

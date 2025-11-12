@@ -1,6 +1,6 @@
 import { Router } from "express";
 import { requireAuth } from "../middlewares/auth.js";
-import { requiereRol } from "../middlewares/roles.js";
+import { requierePermiso } from "../middlewares/permisos.js";
 import {
   listarUsuarios,
   detalleUsuario,
@@ -11,10 +11,25 @@ import {
 
 const r = Router();
 
-r.get("/", requireAuth, listarUsuarios);
-r.get("/:id", requireAuth, detalleUsuario);
-r.post("/", requireAuth, requiereRol("Administrador"), registrarUsuario);
-r.put("/:id", requireAuth, requiereRol("Administrador"), actualizarUsuario);
-r.delete("/:id", requireAuth, requiereRol("Administrador"), eliminarUsuario);
+r.get("/", requireAuth, requierePermiso("ver_usuarios"), listarUsuarios);
+r.get("/:id", requireAuth, requierePermiso("ver_usuarios"), detalleUsuario);
+r.post(
+  "/",
+  requireAuth,
+  requierePermiso("gestionar_usuarios"),
+  registrarUsuario
+);
+r.put(
+  "/:id",
+  requireAuth,
+  requierePermiso("gestionar_usuarios"),
+  actualizarUsuario
+);
+r.delete(
+  "/:id",
+  requireAuth,
+  requierePermiso("gestionar_usuarios"),
+  eliminarUsuario
+);
 
 export default r;
