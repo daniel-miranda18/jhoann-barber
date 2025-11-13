@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { pool, query } from "../db/mysql.js";
+import { pool } from "../db/mysql.js"; // asegúrate que exista la importación
 
 const crearCitaSchema = z.object({
   cliente: z
@@ -258,39 +258,156 @@ export async function citasSemana(req, res) {
   const end = req.query.end;
   if (!start || !end)
     return res.status(422).json({ mensaje: "Datos inválidos" });
-  const [rows] = await pool.query(
-    `SELECT c.id,c.fecha,c.hora,c.duracion_minutos,c.estado,c.notas,
-            c.barbero_id,
-            COALESCE(NULLIF(CONCAT(IFNULL(u.nombres,''),' ',IFNULL(u.apellidos,'')),' '),u.correo_electronico) AS barbero_nombre,
-            c.cliente_id,
-            COALESCE(NULLIF(CONCAT(IFNULL(cl.nombres,''),' ',IFNULL(cl.apellidos,'')),' '),cl.correo_electronico) AS cliente_nombre
-     FROM citas c
-     JOIN usuarios u ON u.id=c.barbero_id
-     LEFT JOIN clientes cl ON cl.id=c.cliente_id
-     WHERE c.fecha>=? AND c.fecha<? 
-     ORDER BY c.fecha,c.hora`,
-    [start, end]
-  );
-  res.json({ data: rows });
+  try {
+    const [rows] = await pool.query(
+      `SELECT 
+         c.id,
+         c.fecha,
+         c.hora,
+         c.duracion_minutos,
+         c.estado,
+         c.notas,
+         c.barbero_id,
+         COALESCE(NULLIF(CONCAT(IFNULL(u.nombres,''),' ',IFNULL(u.apellidos,'')),' '),u.correo_electronico) AS barbero_nombre,
+         c.cliente_id,
+         COALESCE(NULLIF(CONCAT(IFNULL(cl.nombres,''),' ',IFNULL(cl.apellidos,'')),' '),cl.correo_electronico) AS cliente_nombre,
+         GROUP_CONCAT(s.nombre SEPARATOR '||') AS servicios_nombres,
+         GROUP_CONCAT(cs.servicio_id) AS servicios_ids
+       FROM citas c
+       JOIN usuarios u ON u.id=c.barbero_id
+       LEFT JOIN clientes cl ON cl.id=c.cliente_id
+       LEFT JOIN cita_servicio cs ON cs.cita_id = c.id AND cs.esta_activo = 1
+       LEFT JOIN servicios s ON s.id = cs.servicio_id
+       WHERE c.fecha>=? AND c.fecha<? 
+       GROUP BY c.id
+       ORDER BY c.fecha,c.hora`,
+      [start, end]
+    );
+
+    // Normalizar servicios a array (frontend espera array o nombres)
+    const out = rows.map((r) => ({
+      ...r,
+      servicios: r.servicios_nombres ? r.servicios_nombres.split("||") : [],
+      // opcional: array de ids
+      servicios_ids: r.servicios_ids
+        ? r.servicios_ids.split(",").map((x) => Number(x))
+        : [],
+    }));
+
+    res.json({ data: out });
+  } catch (e) {
+    res.status(400).json({ mensaje: e.message || "Error" });
+  }
 }
 
 export async function actualizarEstadoCita(req, res) {
   const id = Number(req.params.id);
-  const estado = String(req.body?.estado || "");
-  const permit = [
-    "pendiente",
-    "confirmada",
-    "cancelada",
-    "no_asistio",
-    "completada",
-  ];
-  if (!permit.includes(estado))
+  const estado = String(req.body?.estado || "").trim();
+  if (!id || !estado)
     return res.status(422).json({ mensaje: "Datos inválidos" });
-  await pool.execute(
-    "UPDATE citas SET estado=?, actualizado_por=? WHERE id=?",
-    [estado, req.usuario?.sub || null, id]
-  );
-  res.json({ mensaje: "Actualizado" });
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    // antes: const [[cita]] = await conn.query("SELECT * FROM citas WHERE id=? AND esta_activo=1", [id]);
+    const [[cita]] = await conn.query("SELECT * FROM citas WHERE id=?", [id]);
+    if (!cita) {
+      await conn.rollback();
+      conn.release();
+      return res.status(404).json({ mensaje: "No encontrado" });
+    }
+
+    await conn.execute(
+      "UPDATE citas SET estado=?, actualizado_por=? WHERE id=?",
+      [estado, req.usuario?.sub || null, id]
+    );
+
+    if (estado === "completada") {
+      const [[ex]] = await conn.query(
+        "SELECT v.id FROM venta_servicios vs JOIN ventas v ON v.id=vs.venta_id WHERE vs.cita_id=? LIMIT 1",
+        [id]
+      );
+
+      if (!ex) {
+        const clienteId = cita.cliente_id || null;
+        const [insertVenta] = await conn.execute(
+          "INSERT INTO ventas (cliente_id,cajero_id,estado,total,metodo_pago,esta_activo,creado_por,actualizado_por) VALUES (?,?,?,?,?,?,?,?)",
+          [
+            clienteId,
+            req.usuario?.sub || null,
+            "pagada",
+            0,
+            "efectivo",
+            1,
+            req.usuario?.sub || null,
+            req.usuario?.sub || null,
+          ]
+        );
+        const ventaId = insertVenta.insertId;
+
+        const [cs] = await conn.query(
+          `SELECT 
+             cs.id,
+             cs.servicio_id,
+             cs.precio_aplicado,
+             s.precio AS servicio_precio,
+             s.duracion_minutos AS servicio_duracion
+           FROM cita_servicio cs
+           JOIN servicios s ON s.id = cs.servicio_id
+           WHERE cs.cita_id=? AND cs.esta_activo=1`,
+          [id]
+        );
+
+        let total = 0;
+        for (const it of cs) {
+          // usar precio_aplicado si existe, si no usar precio del servicio
+          const precio = Number(it.precio_aplicado ?? it.servicio_precio ?? 0);
+          const duracion = Number(
+            it.servicio_duracion ?? cita.duracion_minutos ?? 60
+          );
+          const subtotal = precio; // cantidad 1 por servicio
+          total += subtotal;
+
+          const barberoId = cita.barbero_id || null; // usar barbero de la cita
+
+          await conn.execute(
+            `INSERT INTO venta_servicios 
+              (venta_id,cita_id,servicio_id,barbero_id,duracion_minutos,precio_unitario,subtotal,comision_pct,comision_monto,esta_activo,creado_por,actualizado_por)
+             VALUES (?,?,?,?,?,?,?,?,?,?,?,?)`,
+            [
+              ventaId,
+              id,
+              it.servicio_id,
+              barberoId,
+              duracion,
+              precio,
+              subtotal,
+              null,
+              null,
+              1,
+              req.usuario?.sub || null,
+              req.usuario?.sub || null,
+            ]
+          );
+        }
+        // actualizar total de la venta
+        await conn.execute("UPDATE ventas SET total=? WHERE id=?", [
+          total,
+          ventaId,
+        ]);
+      }
+    }
+
+    await conn.commit();
+    res.json({ mensaje: "Actualizado" });
+  } catch (e) {
+    await conn.rollback();
+    console.error(e);
+    res.status(400).json({ mensaje: e.message || "Error" });
+  } finally {
+    conn.release();
+  }
 }
 
 export async function eliminarCita(req, res) {

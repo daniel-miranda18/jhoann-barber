@@ -1,32 +1,5 @@
 import { useEffect, useMemo, useState, useRef } from "react";
 import {
-  Paper,
-  TextField,
-  InputAdornment,
-  Button,
-  Snackbar,
-  Alert,
-  Chip,
-  Card,
-  CardContent,
-  CardActions,
-  Typography,
-  Divider,
-  Stack,
-  Tabs,
-  Tab,
-  Autocomplete,
-  Switch,
-  MenuItem,
-  IconButton,
-} from "@mui/material";
-import SearchIcon from "@mui/icons-material/Search";
-import SaveIcon from "@mui/icons-material/Save";
-import ContentCopyIcon from "@mui/icons-material/ContentCopy";
-import DeleteIcon from "@mui/icons-material/Delete";
-import ReplayIcon from "@mui/icons-material/Replay";
-import BoltIcon from "@mui/icons-material/Bolt";
-import {
   listarBarberos,
   listarServiciosBarbero,
   guardarServiciosBarbero,
@@ -35,14 +8,39 @@ import {
 } from "../services/barberosServicio";
 import { listarServicios } from "../services/serviciosServicio";
 
+import Autocomplete from "@mui/material/Autocomplete";
+import TextField from "@mui/material/TextField";
+import Button from "@mui/material/Button";
+import Tabs from "@mui/material/Tabs";
+import Tab from "@mui/material/Tab";
+import Card from "@mui/material/Card";
+import CardContent from "@mui/material/CardContent";
+import Switch from "@mui/material/Switch";
+import Select from "@mui/material/Select";
+import MenuItem from "@mui/material/MenuItem";
+import InputLabel from "@mui/material/InputLabel";
+import FormControl from "@mui/material/FormControl";
+import Chip from "@mui/material/Chip";
+import Snackbar from "@mui/material/Snackbar";
+import MuiAlert from "@mui/material/Alert";
+import Table from "@mui/material/Table";
+import TableBody from "@mui/material/TableBody";
+import TableCell from "@mui/material/TableCell";
+import TableHead from "@mui/material/TableHead";
+import TableRow from "@mui/material/TableRow";
+import IconButton from "@mui/material/IconButton";
+import ArrowBackIcon from "@mui/icons-material/ArrowBack";
+import ContentCopyIcon from "@mui/icons-material/ContentCopy";
+import DeleteForeverIcon from "@mui/icons-material/DeleteForever";
+
 const DIAS = [
-  { v: 1, t: "Lunes" },
-  { v: 2, t: "Martes" },
-  { v: 3, t: "Miércoles" },
-  { v: 4, t: "Jueves" },
-  { v: 5, t: "Viernes" },
-  { v: 6, t: "Sábado" },
-  { v: 7, t: "Domingo" },
+  { v: 1, t: "Lunes", s: "Lun" },
+  { v: 2, t: "Martes", s: "Mar" },
+  { v: 3, t: "Miércoles", s: "Mié" },
+  { v: 4, t: "Jueves", s: "Jue" },
+  { v: 5, t: "Viernes", s: "Vie" },
+  { v: 6, t: "Sábado", s: "Sáb" },
+  { v: 7, t: "Domingo", s: "Dom" },
 ];
 
 function useDebounced(v, ms = 500) {
@@ -60,7 +58,6 @@ function t2m(s) {
   const mm = parseInt(m[2], 10);
   return hh * 60 + mm;
 }
-
 function m2t(mins) {
   const h = Math.floor(mins / 60),
     m = mins % 60;
@@ -85,6 +82,7 @@ function emptySlotsMap() {
 
 export default function Barberos() {
   const [rows, setRows] = useState([]);
+  const [horariosPreview, setHorariosPreview] = useState({}); // map barberoId -> ranges[]
   const [q, setQ] = useState("");
   const qd = useDebounced(q, 350);
   const [snack, setSnack] = useState({ open: false, msg: "", sev: "success" });
@@ -127,17 +125,38 @@ export default function Barberos() {
         per_page: 50,
         q: qd || undefined,
       });
-      setRows(r.data || []);
-    } catch {
+      const data = r.data || [];
+      setRows(data);
+
+      // fetch horarios preview for visible barberos (concurrency simple)
+      const ids = data.map((b) => b.id);
+      const promises = ids.map((id) =>
+        listarHorariosBarbero(id)
+          .then((res) => ({ id, data: res.data || [] }))
+          .catch(() => ({ id, data: [] }))
+      );
+      const settled = await Promise.all(promises);
+      const map = {};
+      for (const s of settled) map[s.id] = s.data;
+      setHorariosPreview(map);
+    } catch (e) {
       setRows([]);
+      setHorariosPreview({});
     }
   }
+
   useEffect(() => {
     fetchBarberos();
   }, []);
   useEffect(() => {
     fetchBarberos();
   }, [qd]);
+
+  function formatHorarioRange(r) {
+    if (!r) return "";
+    const d = DIAS.find((x) => Number(x.v) === Number(r.dia_semana));
+    return `${d ? d.s : r.dia_semana} ${r.hora_inicio}-${r.hora_fin}`;
+  }
 
   function rangesToSlotsMap(hor) {
     const map = emptySlotsMap();
@@ -178,14 +197,14 @@ export default function Barberos() {
 
   async function openBarbero(b) {
     setSel(b);
-    setTab(1);
+    setTab(0);
     loadedRef.current = false;
     setDirty(false);
     try {
       const [srv, hor, all] = await Promise.all([
-        listarServiciosBarbero(b.id).catch(() => ({ data: [] })),
-        listarHorariosBarbero(b.id).catch(() => ({ data: [] })),
-        listarServicios({ solo_activos: 1 }).catch(() => ({ data: [] })),
+        listarServiciosBarbero(b.id).catch((e) => ({ data: [] })),
+        listarHorariosBarbero(b.id).catch((e) => ({ data: [] })),
+        listarServicios({ solo_activos: 1 }).catch((e) => ({ data: [] })),
       ]);
       setServiciosAll(all.data || []);
       setServSel((srv.data || []).map((s) => s.id));
@@ -194,7 +213,7 @@ export default function Barberos() {
       setSlotsSel(rangesToSlotsMap(hr));
       loadedRef.current = true;
       setDirty(false);
-    } catch {
+    } catch (e) {
       setServiciosAll([]);
       setServSel([]);
       setHorariosRaw([]);
@@ -245,20 +264,6 @@ export default function Barberos() {
         next[d] = s;
       }
       return next;
-    });
-    markDirty();
-    notify("Copiado");
-  }
-
-  function borrarDia(d) {
-    setSlotsSel((prev) => ({ ...prev, [d]: new Set() }));
-    markDirty();
-  }
-  function selectAllDia(d) {
-    setSlotsSel((prev) => {
-      const s = new Set();
-      for (let i = 0; i < slots.length; i++) s.add(i);
-      return { ...prev, [d]: s };
     });
     markDirty();
   }
@@ -331,73 +336,122 @@ export default function Barberos() {
   }, [startMin, endMin, step]);
 
   return (
-    <Paper
-      className="container-fluid"
-      sx={{
-        p: { xs: 2, md: 3 },
-        borderRadius: 3,
-        border: 1,
-        borderColor: "divider",
-      }}
-    >
+    <div className="container-fluid p-3">
       {!sel && (
         <>
-          <div className="row g-2 align-items-center mb-2">
+          <div className="row mb-2 g-2">
             <div className="col-12 col-md-6">
               <TextField
                 fullWidth
                 size="small"
+                variant="outlined"
                 placeholder="Buscar barbero"
                 value={q}
                 onChange={(e) => setQ(e.target.value)}
-                InputProps={{
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon />
-                    </InputAdornment>
-                  ),
-                }}
               />
             </div>
           </div>
+
           <div className="row g-3">
-            {rows.map((b) => (
-              <div className="col-12 col-sm-6 col-lg-4" key={b.id}>
-                <Card
-                  variant="outlined"
-                  sx={{
-                    height: "100%",
-                    display: "flex",
-                    flexDirection: "column",
-                  }}
-                >
-                  <CardContent sx={{ flexGrow: 1 }}>
-                    <Typography variant="h6" noWrap>
-                      {b.nombres || b.correo_electronico}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {b.apellidos || " "}
-                    </Typography>
-                    <Chip
-                      size="small"
-                      label={b.esta_activo ? "Activo" : "Inactivo"}
-                      color={b.esta_activo ? "success" : "default"}
-                      sx={{ mt: 1 }}
-                    />
-                  </CardContent>
-                  <CardActions>
-                    <Button variant="contained" onClick={() => openBarbero(b)}>
-                      Configurar
-                    </Button>
-                  </CardActions>
-                </Card>
-              </div>
-            ))}
+            {rows.map((b) => {
+              const prev = horariosPreview[b.id] || [];
+              return (
+                <div className="col-12 col-sm-6 col-lg-4" key={b.id}>
+                  <Card className="h-100">
+                    <CardContent
+                      style={{
+                        display: "flex",
+                        flexDirection: "column",
+                        height: "100%",
+                      }}
+                    >
+                      <div style={{ marginBottom: 8 }}>
+                        <strong
+                          style={{
+                            display: "block",
+                            whiteSpace: "nowrap",
+                            overflow: "hidden",
+                            textOverflow: "ellipsis",
+                          }}
+                        >
+                          {b.nombres || b.correo_electronico}
+                        </strong>
+                        <div style={{ color: "#6c757d" }}>
+                          {b.apellidos || " "}
+                        </div>
+                      </div>
+
+                      <div style={{ marginTop: 8, marginBottom: 8 }}>
+                        <div
+                          style={{
+                            fontSize: 12,
+                            color: "#495057",
+                            marginBottom: 6,
+                          }}
+                        >
+                          Horario:
+                        </div>
+                        {prev.length === 0 ? (
+                          <div style={{ fontSize: 12, color: "#6c757d" }}>
+                            Sin horario
+                          </div>
+                        ) : (
+                          <div
+                            style={{
+                              display: "flex",
+                              gap: 6,
+                              flexWrap: "wrap",
+                            }}
+                          >
+                            {prev.slice(0, 3).map((r, i) => (
+                              <Chip
+                                key={i}
+                                label={formatHorarioRange(r)}
+                                size="small"
+                              />
+                            ))}
+                            {prev.length > 3 && (
+                              <Chip
+                                label={`+${prev.length - 3}`}
+                                size="small"
+                              />
+                            )}
+                          </div>
+                        )}
+                      </div>
+
+                      <div
+                        style={{
+                          marginTop: "auto",
+                          display: "flex",
+                          gap: 8,
+                          alignItems: "center",
+                        }}
+                      >
+                        <Chip
+                          label={b.esta_activo ? "Activo" : "Inactivo"}
+                          color={b.esta_activo ? "success" : "default"}
+                          size="small"
+                        />
+                        <div style={{ flex: 1 }} />
+                        <Button
+                          variant="contained"
+                          size="small"
+                          onClick={() => openBarbero(b)}
+                        >
+                          Configurar
+                        </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </div>
+              );
+            })}
             {!rows.length && (
               <div className="col-12">
-                <Typography align="center" color="text.secondary">
+                <div style={{ color: "#6c757d", textAlign: "center" }}>
                   Sin resultados
-                </Typography>
+                </div>
               </div>
             )}
           </div>
@@ -408,52 +462,82 @@ export default function Barberos() {
         <>
           <div className="row mb-2">
             <div className="col-12 d-flex align-items-center justify-content-between">
-              <Typography variant="h6">
-                {sel.nombres || sel.correo_electronico}
-              </Typography>
-              <Button
-                variant="outlined"
-                onClick={() => {
-                  setSel(null);
-                  setSlotsSel(emptySlotsMap());
-                  setHorariosRaw([]);
-                  setTab(0);
-                }}
-              >
-                Volver
-              </Button>
+              <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    setSel(null);
+                    setSlotsSel(emptySlotsMap());
+                    setHorariosRaw([]);
+                    setTab(0);
+                  }}
+                >
+                  <ArrowBackIcon />
+                </IconButton>
+                <div style={{ fontWeight: 600 }}>
+                  {sel.nombres || sel.correo_electronico}
+                </div>
+              </div>
+
+              <div>
+                <Button
+                  variant="outlined"
+                  size="small"
+                  onClick={() => {
+                    setSel(null);
+                    setSlotsSel(emptySlotsMap());
+                    setHorariosRaw([]);
+                    setTab(0);
+                  }}
+                >
+                  Cerrar
+                </Button>
+              </div>
             </div>
           </div>
 
-          <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2 }}>
-            <Tab label="Servicios" />
-            <Tab label="Horario" />
-          </Tabs>
+          <div className="row mb-3">
+            <div className="col-12">
+              <Tabs
+                value={tab}
+                onChange={(_, v) => setTab(v)}
+                indicatorColor="primary"
+                textColor="primary"
+              >
+                <Tab label="Servicios" />
+                <Tab label="Horario" />
+              </Tabs>
+            </div>
+          </div>
 
           {tab === 0 && (
             <div className="row g-3">
               <div className="col-12 col-md-8">
+                <div style={{ marginBottom: 6 }}>Servicios</div>
                 <Autocomplete
                   multiple
-                  options={serviciosAll}
-                  getOptionLabel={(o) => o.nombre}
-                  value={serviciosAll.filter((s) => servSel.includes(s.id))}
-                  onChange={(_, vals) => setServSel(vals.map((v) => v.id))}
+                  options={serviciosAll || []}
+                  getOptionLabel={(o) => o.nombre || ""}
+                  value={(serviciosAll || []).filter((s) =>
+                    servSel.includes(s.id)
+                  )}
+                  onChange={(_, newVal) => setServSel(newVal.map((s) => s.id))}
+                  disableCloseOnSelect
                   renderInput={(params) => (
                     <TextField
                       {...params}
-                      label="Servicios"
+                      variant="outlined"
+                      size="small"
                       placeholder="Selecciona servicios"
                     />
                   )}
                 />
+                <div style={{ color: "#6c757d", marginTop: 6 }}>
+                  Busca y selecciona servicios
+                </div>
               </div>
               <div className="col-12">
-                <Button
-                  variant="contained"
-                  startIcon={<SaveIcon />}
-                  onClick={saveServicios}
-                >
+                <Button variant="contained" onClick={saveServicios}>
                   Guardar
                 </Button>
               </div>
@@ -463,132 +547,144 @@ export default function Barberos() {
           {tab === 1 && (
             <div className="row g-3">
               <div className="col-12 col-xxl-3">
-                <Card variant="outlined">
+                <Card>
                   <CardContent>
-                    <Typography variant="subtitle2">
+                    <div style={{ fontWeight: 600, marginBottom: 8 }}>
                       Configuración de vista
-                    </Typography>
-                    <Stack direction="row" spacing={1} sx={{ mt: 1, mb: 2 }}>
+                    </div>
+
+                    <div
+                      className="d-flex gap-2 mb-2"
+                      style={{ alignItems: "center" }}
+                    >
                       <TextField
-                        size="small"
                         type="time"
+                        size="small"
                         label="Desde"
                         value={startStr}
                         onChange={(e) => setStartStr(e.target.value)}
+                        InputLabelProps={{ shrink: true }}
                       />
                       <TextField
-                        size="small"
                         type="time"
+                        size="small"
                         label="Hasta"
                         value={endStr}
                         onChange={(e) => setEndStr(e.target.value)}
+                        InputLabelProps={{ shrink: true }}
                       />
-                      <TextField
+                      <FormControl size="small" style={{ minWidth: 120 }}>
+                        <InputLabel>Paso</InputLabel>
+                        <Select
+                          value={step}
+                          label="Paso"
+                          onChange={(e) => setStep(Number(e.target.value))}
+                        >
+                          <MenuItem value={60}>60 min</MenuItem>
+                          <MenuItem value={30}>30 min</MenuItem>
+                        </Select>
+                      </FormControl>
+                    </div>
+
+                    <div style={{ marginBottom: 8 }}>
+                      <InputLabel shrink>Días activos</InputLabel>
+                      <Select
+                        multiple
                         size="small"
-                        select
-                        label="Paso"
-                        value={step}
-                        onChange={(e) => setStep(Number(e.target.value))}
-                        sx={{ minWidth: 100 }}
-                      >
-                        <MenuItem value={60}>60 min</MenuItem>
-                        <MenuItem value={30}>30 min</MenuItem>
-                      </TextField>
-                    </Stack>
-                    <Typography variant="subtitle2">Días activos</Typography>
-                    <Autocomplete
-                      multiple
-                      options={DIAS}
-                      disableCloseOnSelect
-                      getOptionLabel={(o) => o.t}
-                      value={DIAS.filter((d) => diasAct.includes(d.v))}
-                      onChange={(_, vals) => setDiasAct(vals.map((v) => v.v))}
-                      renderTags={(value, getTagProps) =>
-                        value.map((o, i) => (
-                          <Chip
-                            {...getTagProps({ index: i })}
-                            key={o.v}
-                            label={o.t}
-                          />
-                        ))
-                      }
-                      renderInput={(params) => (
-                        <TextField {...params} placeholder="Selecciona días" />
-                      )}
-                      sx={{ mt: 1 }}
-                    />
-                    <Stack direction="row" spacing={1} sx={{ mt: 1, mb: 2 }}>
-                      <Button
-                        size="small"
-                        onClick={() => setDiasAct([1, 2, 3, 4, 5, 6, 7])}
-                      >
-                        Todos
-                      </Button>
-                      <Button size="small" onClick={() => setDiasAct([])}>
-                        Ninguno
-                      </Button>
-                      <Button
-                        size="small"
-                        onClick={() => setDiasAct([1, 2, 3, 4, 5])}
-                      >
-                        L–V
-                      </Button>
-                    </Stack>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Switch
-                        checked={multiDia}
-                        onChange={(e) => setMultiDia(e.target.checked)}
-                      />
-                      <Typography>Aplicar a días seleccionados</Typography>
-                    </Stack>
-                    <Divider sx={{ my: 2 }} />
-                    <Stack
-                      direction="row"
-                      spacing={1}
-                      alignItems="center"
-                      sx={{ mb: 2 }}
-                    >
-                      <TextField
-                        select
-                        size="small"
-                        label="Copiar de"
-                        value={copiarDesde}
-                        onChange={(e) => setCopiarDesde(Number(e.target.value))}
-                        sx={{ minWidth: 160 }}
+                        value={diasAct}
+                        onChange={(e) =>
+                          setDiasAct(
+                            typeof e.target.value === "string"
+                              ? e.target.value.split(",").map(Number)
+                              : e.target.value
+                          )
+                        }
+                        renderValue={(selected) =>
+                          selected
+                            .map((v) => DIAS.find((d) => d.v === v)?.t)
+                            .join(", ")
+                        }
                       >
                         {DIAS.map((d) => (
                           <MenuItem key={d.v} value={d.v}>
                             {d.t}
                           </MenuItem>
                         ))}
-                      </TextField>
+                      </Select>
+                      <div style={{ color: "#6c757d", marginTop: 6 }}>
+                        Mantén Ctrl/Cmd para seleccionar varios
+                      </div>
+                    </div>
+
+                    <div
+                      style={{
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 8,
+                        marginTop: 8,
+                      }}
+                    >
+                      <Switch
+                        checked={multiDia}
+                        onChange={(e) => setMultiDia(e.target.checked)}
+                      />
+                      <div>Aplicar a días seleccionados</div>
+                    </div>
+
+                    <hr style={{ margin: "12px 0" }} />
+
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: 8,
+                        alignItems: "center",
+                        marginBottom: 8,
+                      }}
+                    >
+                      <FormControl size="small" style={{ minWidth: 140 }}>
+                        <InputLabel>Copiar desde</InputLabel>
+                        <Select
+                          value={copiarDesde}
+                          label="Copiar desde"
+                          onChange={(e) =>
+                            setCopiarDesde(Number(e.target.value))
+                          }
+                        >
+                          {DIAS.map((d) => (
+                            <MenuItem key={d.v} value={d.v}>
+                              {d.t}
+                            </MenuItem>
+                          ))}
+                        </Select>
+                      </FormControl>
                       <Button
                         variant="outlined"
+                        size="small"
                         startIcon={<ContentCopyIcon />}
                         onClick={copiarDia}
                       >
                         Copiar
                       </Button>
-                    </Stack>
-                    <Divider sx={{ my: 2 }} />
-                    <Stack direction="row" spacing={1}>
+                    </div>
+
+                    <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
                       <Button
+                        variant="outlined"
                         size="small"
-                        startIcon={<BoltIcon />}
                         onClick={presetLV_ManianaTarde}
                       >
                         L–V 08–12 / 14–19
                       </Button>
                       <Button
+                        variant="outlined"
                         size="small"
-                        startIcon={<BoltIcon />}
                         onClick={presetSabadoManiana}
                       >
                         Sáb 09–13
                       </Button>
                       <Button
+                        variant="outlined"
                         size="small"
-                        startIcon={<ReplayIcon />}
                         onClick={() => {
                           setSlotsSel(emptySlotsMap());
                           markDirty();
@@ -596,11 +692,11 @@ export default function Barberos() {
                       >
                         Vaciar
                       </Button>
-                    </Stack>
-                    <Divider sx={{ my: 2 }} />
+                    </div>
+
                     <Button
                       variant="contained"
-                      startIcon={<SaveIcon />}
+                      fullWidth
                       onClick={saveHorarioExplicit}
                     >
                       Guardar manualmente
@@ -610,30 +706,27 @@ export default function Barberos() {
               </div>
 
               <div className="col-12 col-xxl-9">
-                <Card variant="outlined">
+                <Card>
                   <CardContent>
-                    <Typography variant="subtitle2" sx={{ mb: 1 }}>
+                    <div style={{ fontWeight: 600, marginBottom: 8 }}>
                       Horario
-                    </Typography>
+                    </div>
                     <div style={{ overflowX: "auto" }}>
-                      <table
-                        className="table table-sm align-middle mb-2"
-                        style={{ minWidth: 920 }}
-                      >
-                        <thead>
-                          <tr>
-                            <th style={{ width: 90 }}>Hora</th>
+                      <Table size="small" sx={{ minWidth: 920 }}>
+                        <TableHead>
+                          <TableRow>
+                            <TableCell>Hora</TableCell>
                             {DIAS.map((d) => (
-                              <th key={d.v} className="text-center">
+                              <TableCell key={d.v} align="center">
                                 <div
                                   style={{
                                     display: "flex",
+                                    gap: 8,
                                     alignItems: "center",
                                     justifyContent: "center",
-                                    gap: 6,
                                   }}
                                 >
-                                  <span>{d.t}</span>
+                                  <div>{d.t}</div>
                                   <Button
                                     size="small"
                                     onClick={() => selectAllDia(d.v)}
@@ -645,40 +738,33 @@ export default function Barberos() {
                                     color="error"
                                     onClick={() => borrarDia(d.v)}
                                   >
-                                    <DeleteIcon fontSize="small" />
+                                    <DeleteForeverIcon fontSize="small" />
                                   </IconButton>
                                 </div>
-                              </th>
+                              </TableCell>
                             ))}
-                          </tr>
-                        </thead>
-                        <tbody>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
                           {slots.map((label, idx) => (
-                            <tr key={label}>
-                              <td style={{ width: 90 }}>
-                                <Chip size="small" label={label} />
-                              </td>
+                            <TableRow key={label}>
+                              <TableCell sx={{ width: 90 }}>
+                                <Chip label={label} size="small" />
+                              </TableCell>
                               {DIAS.map((d) => {
                                 const active = Boolean(
                                   slotsSel[d.v] && slotsSel[d.v].has(idx)
                                 );
-                                const id = `c-${d.v}-${idx}`;
                                 return (
-                                  <td key={d.v} className="text-center">
-                                    <input
-                                      id={id}
-                                      type="checkbox"
-                                      checked={active}
-                                      onChange={() => toggleCell(d.v, idx)}
-                                      style={{ display: "none" }}
-                                    />
-                                    <label
-                                      htmlFor={id}
+                                  <TableCell key={d.v} align="center">
+                                    <div
                                       role="button"
                                       tabIndex={0}
                                       onKeyDown={(e) =>
                                         clickCellKeyboard(e, d.v, idx)
                                       }
+                                      onClick={() => toggleCell(d.v, idx)}
+                                      title={`${d.t} ${label}`}
                                       style={{
                                         display: "inline-block",
                                         width: 34,
@@ -686,22 +772,21 @@ export default function Barberos() {
                                         borderRadius: 6,
                                         border: "1px solid rgba(0,0,0,.15)",
                                         background: active
-                                          ? "rgba(25,118,210,0.95)"
+                                          ? "rgba(13,110,253,0.9)"
                                           : "transparent",
                                         cursor: "pointer",
                                         boxShadow: active
                                           ? "0 1px 3px rgba(0,0,0,.2)"
                                           : "none",
                                       }}
-                                      title={`${d.t} ${label}`}
                                     />
-                                  </td>
+                                  </TableCell>
                                 );
                               })}
-                            </tr>
+                            </TableRow>
                           ))}
-                        </tbody>
-                      </table>
+                        </TableBody>
+                      </Table>
                     </div>
                   </CardContent>
                 </Card>
@@ -716,13 +801,14 @@ export default function Barberos() {
         autoHideDuration={3000}
         onClose={() => setSnack((s) => ({ ...s, open: false }))}
       >
-        <Alert
-          severity={snack.sev}
+        <MuiAlert
           onClose={() => setSnack((s) => ({ ...s, open: false }))}
+          severity={snack.sev}
+          sx={{ width: "100%" }}
         >
           {snack.msg}
-        </Alert>
+        </MuiAlert>
       </Snackbar>
-    </Paper>
+    </div>
   );
 }

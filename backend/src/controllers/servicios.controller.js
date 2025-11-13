@@ -168,3 +168,53 @@ export async function eliminarServicio(req, res) {
     return res.status(400).json({ mensaje: e.message });
   }
 }
+
+export async function listarServiciosPublico(req, res) {
+  try {
+    const { activo = 1, publicado = 1 } = req.query;
+    let query =
+      "SELECT id, nombre, descripcion, duracion_minutos, precio FROM servicios WHERE 1=1";
+    const params = [];
+
+    if (activo !== undefined && activo !== "") {
+      query += " AND esta_activo = ?";
+      params.push(activo === "1" || activo === 1 ? 1 : 0);
+    }
+
+    if (publicado !== undefined && publicado !== "") {
+      query += " AND esta_publicado = ?";
+      params.push(publicado === "1" || publicado === 1 ? 1 : 0);
+    }
+
+    query += " ORDER BY nombre ASC";
+
+    const [rows] =
+      params.length > 0
+        ? await pool.execute(query, params)
+        : await pool.query(query);
+
+    return res.json({ data: rows || [] });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ mensaje: "Error al listar servicios" });
+  }
+}
+
+export async function obtenerServicioPublico(req, res) {
+  try {
+    const { id } = req.params;
+    if (!id) return res.status(400).json({ mensaje: "ID requerido" });
+
+    const [[row]] = await pool.query(
+      "SELECT id, nombre, descripcion, duracion_minutos, precio FROM servicios WHERE id = ? AND esta_publicado = 1",
+      [id]
+    );
+
+    if (!row)
+      return res.status(404).json({ mensaje: "Servicio no encontrado" });
+    return res.json({ data: row });
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ mensaje: "Error al obtener servicio" });
+  }
+}

@@ -34,6 +34,7 @@ import PointOfSaleIcon from "@mui/icons-material/PointOfSale";
 import HistoryIcon from "@mui/icons-material/History";
 import EventIcon from "@mui/icons-material/Event";
 import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import RoomIcon from "@mui/icons-material/Room";
 import { Outlet, useLocation, useNavigate } from "react-router-dom";
 import {
   sesion,
@@ -132,6 +133,8 @@ export default function AppLayout() {
     claves.includes("gestionar_citas") || claves.includes("ver_citas");
   const puedeAuditoria =
     claves.includes("gestionar_auditoria") || claves.includes("ver_auditoria");
+  const puedeContacto =
+    claves.includes("gestionar_usuarios") || claves.includes("ver_usuarios");
 
   const btnSx = { pl: 2 };
   const drawer = (
@@ -318,6 +321,21 @@ export default function AppLayout() {
               <HistoryIcon />
             </ListItemIcon>
             <ListItemText primary="Auditoría" />
+          </ListItemButton>
+        )}
+        {puedeContacto && (
+          <ListItemButton
+            selected={loc.pathname.startsWith("/admin/contacto")}
+            onClick={() => {
+              nav("/admin/contacto");
+              setMobileOpen(false);
+            }}
+            sx={btnSx}
+          >
+            <ListItemIcon>
+              <RoomIcon />
+            </ListItemIcon>
+            <ListItemText primary="Contacto" />
           </ListItemButton>
         )}
       </List>

@@ -15,3 +15,10 @@ export function actualizarServicio(id, payload) {
 export function eliminarServicio(id) {
   return http.delete(`/servicios/${id}`).then((r) => r.data);
 }
+export function listarServiciosPublico(params) {
+  return http.get("/servicios/public", { params }).then((r) => r.data);
+}
+
+export function detalleServicioPublico(id) {
+  return http.get(`/servicios/public/${id}`).then((r) => r.data);
+}

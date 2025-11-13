@@ -1,15 +1,20 @@
 import { Router } from "express";
-import { requireAuth } from "../middlewares/auth.js";
-import { requierePermiso } from "../middlewares/permisos.js";
 import {
+  listarServiciosPublico,
+  obtenerServicioPublico,
   crearServicio,
   listarServicios,
   detalleServicio,
   actualizarServicio,
   eliminarServicio,
 } from "../controllers/servicios.controller.js";
+import { requireAuth } from "../middlewares/auth.js";
+import { requierePermiso } from "../middlewares/permisos.js";
 
 const r = Router();
+
+r.get("/public", listarServiciosPublico);
+r.get("/public/:id", obtenerServicioPublico);
 
 r.post("/", requireAuth, requierePermiso("gestionar_servicios"), crearServicio);
 r.get("/", requireAuth, requierePermiso("ver_servicios"), listarServicios);

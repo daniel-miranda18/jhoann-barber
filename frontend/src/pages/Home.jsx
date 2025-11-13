@@ -6,17 +6,22 @@ import {
   Stack,
   Card,
   CardContent,
-  TextField,
-  Paper,
+  Grid,
+  Avatar,
+  Rating,
 } from "@mui/material";
 import { Link as RouterLink } from "react-router-dom";
 import ContentCutIcon from "@mui/icons-material/ContentCut";
 import Face6Icon from "@mui/icons-material/Face6";
 import CleanHandsIcon from "@mui/icons-material/CleanHands";
+import AccessTimeIcon from "@mui/icons-material/AccessTime";
+import VerifiedIcon from "@mui/icons-material/Verified";
+import PersonIcon from "@mui/icons-material/Person";
 import img1 from "../assets/images/slide1.jpg";
 import img2 from "../assets/images/slide2.jpg";
 import img3 from "../assets/images/slide3.jpg";
 import headingLine from "../assets/images/heading-line.png";
+import ScrollToTopButton from "../components/ScrollToTopButton";
 
 export default function Home() {
   return (
@@ -144,7 +149,6 @@ export default function Home() {
           </Box>
         </div>
       </Box>
-
       <Box
         sx={{
           backgroundImage: `url(${headingLine})`,
@@ -154,7 +158,6 @@ export default function Home() {
           my: 5,
         }}
       />
-
       <Container sx={{ pb: { xs: 2, md: 8 } }}>
         <Stack spacing={1} alignItems="center">
           <Typography variant="overline" color="text.secondary">
@@ -292,59 +295,67 @@ export default function Home() {
         }}
       />
 
-      <Container sx={{ pb: { xs: 6, md: 10 } }}>
-        <Stack spacing={1} alignItems="center" sx={{ mb: 3 }}>
-          <Typography
-            variant="h4"
-            sx={{ fontWeight: 900 }}
-            color="text.primary"
-          >
-            Contáctanos
-          </Typography>
-          <Typography color="text.secondary" textAlign="center">
-            Escríbenos y te respondemos a la brevedad.
-          </Typography>
-        </Stack>
+      <Box>
+        <Container>
+          <Stack spacing={1} alignItems="center" sx={{ mb: 4 }}>
+            <Typography
+              variant="overline"
+              sx={{ color: (t) => t.palette.primary.dark }}
+            >
+              Razones
+            </Typography>
+            <Typography
+              variant="h4"
+              sx={{ fontWeight: 900, textAlign: "center" }}
+              color="text.primary"
+            >
+              ¿Por qué elegirnos?
+            </Typography>
+          </Stack>
 
-        <Paper
-          elevation={0}
-          sx={{
-            p: { xs: 2.5, md: 4 },
-            borderRadius: 3,
-            border: 1,
-            borderColor: "divider",
-            backgroundColor: (t) => t.palette.background.paper,
-          }}
-        >
-          <form onSubmit={(e) => e.preventDefault()}>
-            <div className="row g-3 align-items-stretch">
-              <div className="col-12 col-md-3">
-                <TextField label="Nombre" fullWidth />
-              </div>
-              <div className="col-12 col-md-3">
-                <TextField label="Correo Electrónico" type="email" fullWidth />
-              </div>
-              <div className="col-12 col-md-3">
-                <TextField label="Teléfono" fullWidth />
-              </div>
-              <div className="col-12 col-md-3">
-                <TextField label="Asunto" fullWidth />
-              </div>
-              <div className="col-12">
-                <TextField label="Mensaje" multiline minRows={4} fullWidth />
-              </div>
-              <div className="col-12 d-flex justify-content-end gap-2">
-                <Button type="reset" variant="outlined" color="primary">
-                  Limpiar
-                </Button>
-                <Button type="submit" variant="contained" color="primary">
-                  Enviar
-                </Button>
-              </div>
-            </div>
-          </form>
-        </Paper>
-      </Container>
+          <Grid container spacing={3}>
+            {[
+              {
+                icon: <AccessTimeIcon fontSize="large" color="primary" />,
+                title: "Atención por Cita",
+                desc: "Sin esperas. Reserva tu horario con anticipación.",
+              },
+              {
+                icon: <VerifiedIcon fontSize="large" color="primary" />,
+                title: "Profesionales Certificados",
+                desc: "Equipo capacitado y con experiencia en barbería clásica.",
+              },
+              {
+                icon: <ContentCutIcon fontSize="large" color="primary" />,
+                title: "Acabado Premium",
+                desc: "Técnicas y productos de calidad garantizada.",
+              },
+            ].map((item, i) => (
+              <Grid item xs={12} md={6} lg={4} key={i}>
+                <Card
+                  sx={{
+                    height: "100%",
+                    textAlign: "center",
+                    boxShadow: 1,
+                    borderRadius: 2,
+                  }}
+                >
+                  <CardContent sx={{ p: 3 }}>
+                    <Box sx={{ mb: 2 }}>{item.icon}</Box>
+                    <Typography variant="h6" sx={{ fontWeight: 700, mb: 1 }}>
+                      {item.title}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {item.desc}
+                    </Typography>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </Container>
+      </Box>
+      <ScrollToTopButton />
     </>
   );
 }

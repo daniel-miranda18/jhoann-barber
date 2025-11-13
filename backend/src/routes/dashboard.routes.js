@@ -8,6 +8,8 @@ import {
   citasPorEstado,
   productosMasVendidos,
   comparativoIngresoGasto,
+  listaBarberos,
+  detalleBarbero,
 } from "../controllers/dashboard.controller.js";
 
 const r = Router();
@@ -19,5 +21,7 @@ r.get("/ventas-barbero", requireAuth, ventasPorBarbero);
 r.get("/citas-estado", requireAuth, citasPorEstado);
 r.get("/productos-vendidos", requireAuth, productosMasVendidos);
 r.get("/ingreso-gasto", requireAuth, comparativoIngresoGasto);
+r.get("/barberos", requireAuth, listaBarberos);
+r.get("/barberos/:id", requireAuth, detalleBarbero);
 
 export default r;

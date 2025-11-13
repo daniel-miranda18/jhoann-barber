@@ -492,6 +492,7 @@ function GaleriaDialog({ open, onClose, productoId, notify }) {
   const [adding, setAdding] = useState(false);
 
   async function load() {
+    if (!productoId) return;
     const d = await detalleProducto(productoId);
     setDetalle(d?.data || null);
   }
@@ -529,9 +530,31 @@ function GaleriaDialog({ open, onClose, productoId, notify }) {
   }
 
   return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
-      <DialogTitle>Galería</DialogTitle>
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="lg">
+      <DialogTitle>{detalle?.nombre || "Galería del producto"}</DialogTitle>
       <DialogContent dividers>
+        {/* Product header / summary */}
+        <div style={{ marginBottom: 12 }}>
+          <Typography variant="subtitle1" fontWeight={700}>
+            {detalle?.nombre}
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+            {detalle?.descripcion || "—"}
+          </Typography>
+          <Stack direction="row" spacing={2} alignItems="center" sx={{ mb: 2 }}>
+            <Chip
+              label={`Precio: ${Number(detalle?.precio_unitario || 0).toFixed(
+                2
+              )}`}
+            />
+            <Chip label={`Stock: ${detalle?.stock ?? "—"}`} />
+            <Chip
+              color={detalle?.esta_activo ? "success" : "default"}
+              label={detalle?.esta_activo ? "Activo" : "Inactivo"}
+            />
+          </Stack>
+        </div>
+
         <Stack direction="row" spacing={2} alignItems="center" className="mb-3">
           <Button
             variant="outlined"
@@ -550,37 +573,53 @@ function GaleriaDialog({ open, onClose, productoId, notify }) {
           </Button>
           {adding && <LinearProgress sx={{ flex: 1 }} />}
         </Stack>
+
         <Grid container spacing={2}>
           {(detalle?.fotos || []).map((f) => (
             <Grid item xs={6} sm={4} md={3} key={f.id}>
-              <div className="position-relative">
-                <img
-                  src={`${import.meta.env.VITE_API_URL}${f.url}`}
-                  alt=""
-                  style={{
-                    width: "100%",
-                    height: 160,
-                    objectFit: "cover",
-                    borderRadius: 8,
-                  }}
-                />
-                <div className="d-flex justify-content-between align-items-center mt-1">
-                  <Tooltip title="Principal">
+              <div
+                style={{
+                  borderRadius: 8,
+                  overflow: "hidden",
+                  background: "#f5f5f5",
+                }}
+              >
+                <div style={{ width: "100%", height: 200, display: "block" }}>
+                  <img
+                    src={`${import.meta.env.VITE_API_URL}${f.url}`}
+                    alt=""
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                </div>
+                <div className="d-flex justify-content-between align-items-center p-2">
+                  <div>
+                    <Typography variant="caption" noWrap>
+                      {f.titulo || ""}
+                    </Typography>
+                  </div>
+                  <div>
+                    <Tooltip title="Principal">
+                      <IconButton
+                        size="small"
+                        onClick={() => setPrincipal(f.id)}
+                        color={f.es_principal ? "primary" : "default"}
+                      >
+                        {f.es_principal ? <StarIcon /> : <StarBorderIcon />}
+                      </IconButton>
+                    </Tooltip>
                     <IconButton
                       size="small"
-                      onClick={() => setPrincipal(f.id)}
-                      color={f.es_principal ? "primary" : "default"}
+                      color="error"
+                      onClick={() => removeFoto(f.id)}
                     >
-                      {f.es_principal ? <StarIcon /> : <StarBorderIcon />}
+                      <DeleteIcon fontSize="small" />
                     </IconButton>
-                  </Tooltip>
-                  <IconButton
-                    size="small"
-                    color="error"
-                    onClick={() => removeFoto(f.id)}
-                  >
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
+                  </div>
                 </div>
               </div>
             </Grid>
@@ -722,8 +761,7 @@ export default function Productos() {
   }
 
   async function openView(id) {
-    const d = await detalleProducto(id);
-    setViewData(d?.data || null);
+    setGaleriaFor(id);
   }
 
   return (
@@ -796,36 +834,49 @@ export default function Productos() {
                   height: "100%",
                   display: "flex",
                   flexDirection: "column",
+                  borderRadius: 2,
+                  overflow: "hidden",
                 }}
               >
-                <CardMedia
-                  component="img"
-                  height="180"
-                  image={
-                    r.foto_principal
-                      ? `${import.meta.env.VITE_API_URL}${r.foto_principal}`
-                      : "https://via.placeholder.com/600x400?text=Sin+imagen"
-                  }
-                  alt=""
-                />
-                <CardContent sx={{ flexGrow: 1 }}>
+                <div
+                  style={{ width: "100%", height: 200, background: "#f6f6f6" }}
+                >
+                  <img
+                    src={
+                      r.foto_principal
+                        ? `${import.meta.env.VITE_API_URL}${r.foto_principal}`
+                        : "https://via.placeholder.com/800x600?text=Sin+imagen"
+                    }
+                    alt={r.nombre || ""}
+                    style={{
+                      width: "100%",
+                      height: "100%",
+                      objectFit: "cover",
+                      display: "block",
+                    }}
+                  />
+                </div>
+
+                <CardContent sx={{ flexGrow: 1, pt: 2 }}>
                   <Typography
                     variant="subtitle1"
-                    fontWeight={700}
+                    fontWeight={800}
                     noWrap
                     title={r.nombre}
+                    sx={{ mb: 0.5 }}
                   >
                     {r.nombre}
                   </Typography>
                   <Typography
                     variant="body2"
                     color="text.secondary"
-                    sx={{ mb: 1 }}
                     noWrap
                     title={r.descripcion || ""}
+                    sx={{ mb: 1 }}
                   >
                     {r.descripcion || "—"}
                   </Typography>
+
                   <Stack
                     direction="row"
                     spacing={1}
@@ -839,40 +890,65 @@ export default function Productos() {
                       label={r.esta_activo ? "Activo" : "Inactivo"}
                     />
                   </Stack>
-                  <Typography variant="h6" sx={{ letterSpacing: "-0.02em" }}>
-                    {Number(r.precio_unitario || 0).toFixed(2)} • Stock{" "}
-                    {r.stock}
+
+                  <Typography
+                    variant="h6"
+                    sx={{ letterSpacing: "-0.02em", mb: 0.5 }}
+                  >
+                    {Number(r.precio_unitario || 0).toFixed(2)}
                   </Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    display="block"
+                    sx={{ mb: 1 }}
+                  >
+                    Stock {r.stock ?? "—"} •{" "}
                     {r.creado_en
                       ? dayjs(r.creado_en).format("YYYY-MM-DD")
                       : "—"}
                   </Typography>
                 </CardContent>
-                <CardActions sx={{ justifyContent: "space-between" }}>
+
+                <CardActions
+                  sx={{ justifyContent: "space-between", px: 2, pb: 2 }}
+                >
                   <div>
-                    <IconButton onClick={() => openView(r.id)}>
-                      <VisibilityIcon />
-                    </IconButton>
-                    <IconButton
-                      onClick={() => {
-                        setEditRow(r);
-                        setOpenForm(true);
-                      }}
-                    >
-                      <EditIcon />
-                    </IconButton>
-                    <IconButton color="error" onClick={() => setToDelete(r)}>
-                      <DeleteIcon />
-                    </IconButton>
+                    <Tooltip title="Ver detalle">
+                      <IconButton size="small" onClick={() => openView(r.id)}>
+                        <VisibilityIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Editar">
+                      <IconButton
+                        size="small"
+                        onClick={() => {
+                          setEditRow(r);
+                          setOpenForm(true);
+                        }}
+                      >
+                        <EditIcon />
+                      </IconButton>
+                    </Tooltip>
+                    <Tooltip title="Eliminar">
+                      <IconButton
+                        size="small"
+                        color="error"
+                        onClick={() => setToDelete(r)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+                    </Tooltip>
                   </div>
-                  <Button
-                    size="small"
-                    startIcon={<ImageIcon />}
-                    onClick={() => setGaleriaFor(r.id)}
-                  >
-                    Galería
-                  </Button>
+                  <div>
+                    <Button
+                      size="small"
+                      startIcon={<ImageIcon />}
+                      onClick={() => setGaleriaFor(r.id)}
+                    >
+                      Galería
+                    </Button>
+                  </div>
                 </CardActions>
               </Card>
             </div>
@@ -921,63 +997,6 @@ export default function Productos() {
         initial={editRow}
         notify={notify}
       />
-
-      <Dialog
-        open={Boolean(viewData)}
-        onClose={() => setViewData(null)}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle>Detalle de producto</DialogTitle>
-        <DialogContent dividers>
-          <Stack spacing={1.2}>
-            <Typography>
-              <strong>Nombre:</strong> {viewData?.nombre}
-            </Typography>
-            <Typography>
-              <strong>Descripción:</strong> {viewData?.descripcion || "—"}
-            </Typography>
-            <Typography>
-              <strong>Código Único:</strong> {viewData?.sku || "—"}
-            </Typography>
-            <Typography>
-              <strong>Precio en Venta:</strong>{" "}
-              {Number(viewData?.precio_unitario || 0).toFixed(2)}
-            </Typography>
-            <Typography>
-              <strong>Costo:</strong>{" "}
-              {viewData?.costo_unitario != null
-                ? Number(viewData?.costo_unitario).toFixed(2)
-                : "—"}
-            </Typography>
-            <Typography>
-              <strong>Stock:</strong> {viewData?.stock}
-            </Typography>
-            <Typography>
-              <strong>Estado:</strong>{" "}
-              {viewData?.esta_activo ? "Activo" : "Inactivo"}
-            </Typography>
-            <Typography>
-              <strong>Creado:</strong>{" "}
-              {viewData?.creado_en
-                ? dayjs(viewData.creado_en).format("YYYY-MM-DD HH:mm")
-                : "—"}
-            </Typography>
-            {viewData?.foto_principal && (
-              <img
-                src={`${import.meta.env.VITE_API_URL}${
-                  viewData.foto_principal
-                }`}
-                alt=""
-                style={{ maxHeight: 180, borderRadius: 8 }}
-              />
-            )}
-          </Stack>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setViewData(null)}>Cerrar</Button>
-        </DialogActions>
-      </Dialog>
 
       <GaleriaDialog
         open={Boolean(galeriaFor)}

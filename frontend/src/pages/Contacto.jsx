@@ -12,6 +12,10 @@ import {
   Snackbar,
   Alert,
   Box,
+  Grid,
+  InputAdornment,
+  Avatar,
+  Fab,
 } from "@mui/material";
 import PhoneIphoneIcon from "@mui/icons-material/PhoneIphone";
 import EmailIcon from "@mui/icons-material/Email";
@@ -21,7 +25,12 @@ import RoomIcon from "@mui/icons-material/Room";
 import SendIcon from "@mui/icons-material/Send";
 import WhatsAppIcon from "@mui/icons-material/WhatsApp";
 import TheatersIcon from "@mui/icons-material/Theaters";
+import MusicNoteIcon from "@mui/icons-material/MusicNote"; // <-- nuevo para TikTok
+import PersonIcon from "@mui/icons-material/Person";
+import SubjectIcon from "@mui/icons-material/Subject";
+import MessageIcon from "@mui/icons-material/Message";
 import { obtenerInformacionContacto } from "../services/contactoServicio";
+import dayjs from "dayjs";
 
 export default function Contacto() {
   const [contacto, setContacto] = useState(null);
@@ -41,20 +50,20 @@ export default function Contacto() {
 
   useEffect(() => {
     obtenerInformacionContacto()
-      .then((data) => setContacto(data.data))
+      .then((data) => setContacto(data?.data || {}))
       .catch(() =>
         setAlerta({
           open: true,
           msg: "No se pudo cargar la información",
-          sev: "error",
+          type: "error",
         })
       );
   }, []);
 
   const valido = useMemo(() => {
-    const e = form.email.trim();
-    const n = form.nombre.trim();
-    const m = form.mensaje.trim();
+    const e = (form.email || "").trim();
+    const n = (form.nombre || "").trim();
+    const m = (form.mensaje || "").trim();
     return n.length >= 2 && /\S+@\S+\.\S+/.test(e) && m.length >= 5;
   }, [form]);
 
@@ -86,7 +95,9 @@ export default function Contacto() {
       });
       setForm({ nombre: "", email: "", celular: "", asunto: "", mensaje: "" });
     } catch {
-      const mailto = `mailto:${contacto.email}?subject=${encodeURIComponent(
+      const mailto = `mailto:${
+        contacto?.email || ""
+      }?subject=${encodeURIComponent(
         form.asunto || "Consulta desde la web"
       )}&body=${encodeURIComponent(
         `Nombre: ${form.nombre}\nEmail: ${form.email}\nCelular: ${form.celular}\n\n${form.mensaje}`
@@ -98,44 +109,82 @@ export default function Contacto() {
   };
 
   if (!contacto) return <Typography>Cargando...</Typography>;
+  const waLink = (() => {
+    const raw = String(contacto?.whatsapp || "").trim();
+    if (!raw) return null;
+    const digits = raw.replace(/\D/g, "");
+    if (!digits) return null;
+    if (digits.startsWith("591")) return `https://wa.me/${digits}`;
+    if (digits.length === 8) return `https://wa.me/591${digits}`;
+    return `https://wa.me/${digits}`;
+  })();
 
   return (
-    <Container sx={{ py: 6 }}>
-      <div className="row gy-4">
+    <Container>
+      <Box sx={{ py: 5, textAlign: "center" }}>
+        <div className="container">
+          <Typography
+            variant="h3"
+            sx={{ fontWeight: 900, mb: 1, color: "#212529" }}
+          >
+            Contacto
+          </Typography>
+          <Typography variant="h6" sx={{ color: "#6c757d" }}>
+            ¡Estamos aquí para ayudarte! Si tienes alguna pregunta o necesitas más información, no dudes en contactarnos a través de este formulario. Nuestro equipo estará encantado de asistirte con cualquier consulta que tengas.
+          </Typography>
+        </div>
+      </Box>
+      <div className="row g-4 align-items-stretch">
         <div className="col-12 col-lg-5">
-          <Card>
-            <CardContent>
-              <Stack spacing={2}>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <RoomIcon />
-                  <Typography variant="subtitle1">
-                    {contacto.direccion}
-                  </Typography>
+          <Card elevation={2} className="h-100">
+            <CardContent
+              sx={{ display: "flex", flexDirection: "column", height: "100%" }}
+            >
+              <Stack spacing={2} sx={{ flex: 1 }}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Avatar sx={{ bgcolor: "primary.main" }}>
+                    <RoomIcon />
+                  </Avatar>
+                  <div>
+                    <Typography variant="subtitle1" fontWeight={700}>
+                      Ubicación
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      {contacto.direccion}
+                    </Typography>
+                  </div>
                 </Stack>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <PhoneIphoneIcon />
-                  <MUILink href={`tel:${contacto.telefono}`} underline="hover">
-                    {contacto.telefono}
-                  </MUILink>
-                  <Button
-                    variant="outlined"
-                    size="small"
-                    startIcon={<WhatsAppIcon />}
-                    href={contacto.whatsapp}
-                    target="_blank"
-                    rel="noopener"
-                    sx={{ ml: 1 }}
-                  >
-                    WhatsApp
-                  </Button>
-                </Stack>
-                <Stack direction="row" alignItems="center" spacing={1}>
-                  <MUILink href={`mailto:${contacto.email}`} underline="hover">
-                    {contacto.email}
-                  </MUILink>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <Avatar sx={{ bgcolor: "success.main" }}>
+                    <PhoneIphoneIcon />
+                  </Avatar>
+                  <div>
+                    <Typography variant="subtitle1" fontWeight={700}>
+                      Teléfono
+                    </Typography>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <MUILink
+                        href={`tel:${contacto.telefono}`}
+                        underline="hover"
+                      >
+                        {contacto.telefono}
+                      </MUILink>
+                      {waLink && (
+                        <Button
+                          size="small"
+                          startIcon={<WhatsAppIcon />}
+                          href={waLink}
+                          target="_blank"
+                          rel="noopener"
+                        >
+                          WhatsApp
+                        </Button>
+                      )}
+                    </Stack>
+                  </div>
                 </Stack>
 
-                <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                <Stack direction="row" spacing={1}>
                   <IconButton
                     component="a"
                     href={contacto.facebook}
@@ -161,15 +210,24 @@ export default function Contacto() {
                     rel="noopener"
                     aria-label="TikTok"
                   >
-                    <TheatersIcon />
+                    <MusicNoteIcon /> {/* TikTok: icono arreglado */}
                   </IconButton>
                 </Stack>
 
-                <Box sx={{ borderRadius: 2, overflow: "hidden" }}>
+                {/* mapa ocupa espacio flexible para alinear altura con el formulario */}
+                <Box
+                  sx={{
+                    borderRadius: 2,
+                    overflow: "hidden",
+                    boxShadow: 1,
+                    flex: 1,
+                    minHeight: 300,
+                  }}
+                >
                   <iframe
                     title="Ubicación"
                     width="100%"
-                    height="260"
+                    height="100%"
                     style={{ border: 0 }}
                     loading="lazy"
                     allowFullScreen
@@ -179,19 +237,34 @@ export default function Contacto() {
                     )}&z=16&output=embed`}
                   />
                 </Box>
+
+                <Typography variant="caption" color="text.secondary">
+                  Última actualización:{" "}
+                  {contacto.actualizado_en
+                    ? dayjs(contacto.actualizado_en).format("YYYY-MM-DD HH:mm")
+                    : "—"}
+                </Typography>
               </Stack>
             </CardContent>
           </Card>
         </div>
 
+        {/* columna derecha: formulario en dos columnas dentro del card */}
         <div className="col-12 col-lg-7">
-          <Card>
-            <CardContent>
+          <Card elevation={2} className="h-100">
+            <CardContent
+              sx={{ display: "flex", flexDirection: "column", height: "100%" }}
+            >
               <Typography variant="h6" sx={{ mb: 2 }}>
                 Escríbenos
               </Typography>
-              <form onSubmit={handleSubmit} noValidate>
-                <div className="row gy-3">
+
+              <form
+                onSubmit={handleSubmit}
+                noValidate
+                style={{ display: "flex", flexDirection: "column", flex: 1 }}
+              >
+                <div className="row g-3" style={{ flex: 1 }}>
                   <div className="col-12 col-md-6">
                     <TextField
                       fullWidth
@@ -199,8 +272,16 @@ export default function Contacto() {
                       value={form.nombre}
                       onChange={handleChange("nombre")}
                       required
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <PersonIcon />
+                          </InputAdornment>
+                        ),
+                      }}
                     />
                   </div>
+
                   <div className="col-12 col-md-6">
                     <TextField
                       fullWidth
@@ -209,51 +290,111 @@ export default function Contacto() {
                       value={form.email}
                       onChange={handleChange("email")}
                       required
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <EmailIcon />
+                          </InputAdornment>
+                        ),
+                      }}
                     />
                   </div>
+
                   <div className="col-12 col-md-6">
                     <TextField
                       fullWidth
                       label="Celular"
                       value={form.celular}
                       onChange={handleChange("celular")}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <PhoneIphoneIcon />
+                          </InputAdornment>
+                        ),
+                      }}
                     />
                   </div>
+
                   <div className="col-12 col-md-6">
                     <TextField
                       fullWidth
                       label="Asunto"
                       value={form.asunto}
                       onChange={handleChange("asunto")}
+                      InputProps={{
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <SubjectIcon />
+                          </InputAdornment>
+                        ),
+                      }}
                     />
                   </div>
-                  <div className="col-12">
+
+                  <div
+                    className="col-12"
+                    style={{ display: "flex", flexDirection: "column" }}
+                  >
                     <TextField
                       fullWidth
                       label="Mensaje"
                       value={form.mensaje}
                       onChange={handleChange("mensaje")}
                       multiline
-                      minRows={5}
+                      minRows={6}
                       required
+                      sx={{ height: "100%" }}
                     />
                   </div>
-                  <div className="col-12">
-                    <Button
-                      type="submit"
-                      variant="contained"
-                      endIcon={<SendIcon />}
-                      disabled={sending || !valido}
-                    >
-                      Enviar
-                    </Button>
-                  </div>
                 </div>
+                <Stack
+                  direction="row"
+                  spacing={2}
+                  justifyContent="flex-start"
+                  sx={{ mt: 2 }}
+                >
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    endIcon={<SendIcon />}
+                    disabled={sending || !valido}
+                  >
+                    Enviar
+                  </Button>
+                  <Button
+                    variant="outlined"
+                    onClick={() =>
+                      setForm({
+                        nombre: "",
+                        email: "",
+                        celular: "",
+                        asunto: "",
+                        mensaje: "",
+                      })
+                    }
+                  >
+                    Limpiar
+                  </Button>
+                </Stack>
               </form>
             </CardContent>
           </Card>
         </div>
       </div>
+
+      {waLink && (
+        <Fab
+          color="success"
+          aria-label="whatsapp"
+          href={waLink}
+          target="_blank"
+          rel="noopener"
+          sx={{ position: "fixed", right: 20, bottom: 20 }}
+        >
+          <WhatsAppIcon />
+        </Fab>
+      )}
 
       <Snackbar
         open={alerta.open}

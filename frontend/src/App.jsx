@@ -3,6 +3,7 @@ import NavBar from "./components/NavBar.jsx";
 import Footer from "./components/Footer.jsx";
 import Home from "./pages/Home.jsx";
 import Nosotros from "./pages/Nosotros.jsx";
+import ServiciosPublico from "./pages/ServiciosPublico.jsx";
 import Servicios from "./pages/Servicios.jsx";
 import Contacto from "./pages/Contacto.jsx";
 import Reservar from "./pages/Reservar.jsx";
@@ -20,16 +21,12 @@ import Pagos from "./pages/Pagos.jsx";
 import Auditoria from "./pages/Auditoria.jsx";
 import Citas from "./pages/Citas.jsx";
 import Perfil from "./pages/Perfil";
-
-function PublicShell() {
-  return (
-    <>
-      <NavBar />
-      <Outlet />
-      <Footer />
-    </>
-  );
-}
+import AdminContacto from "./pages/AdminContacto.jsx";
+import ScrollToTopButton from "./components/ScrollToTopButton.jsx";
+import { useEffect, useState } from "react";
+import Fab from "@mui/material/Fab";
+import WhatsAppIcon from "@mui/icons-material/WhatsApp";
+import { obtenerInformacionContacto } from "./services/contactoServicio";
 
 export default function App() {
   return (
@@ -37,6 +34,7 @@ export default function App() {
       <Route element={<PublicShell />}>
         <Route path="/" element={<Home />} />
         <Route path="/nosotros" element={<Nosotros />} />
+        <Route path="/nuestros-servicios" element={<ServiciosPublico />} />
         <Route path="/contacto" element={<Contacto />} />
         <Route path="/reservar" element={<Reservar />} />
         <Route path="/mis-reservas" element={<MisReservas />} />
@@ -57,7 +55,63 @@ export default function App() {
         <Route path="/pagos" element={<Pagos />} />
         <Route path="/citas" element={<Citas />} />
         <Route path="/auditoria" element={<Auditoria />} />
+        <Route path="/admin/contacto" element={<AdminContacto />} />
       </Route>
     </Routes>
+  );
+}
+
+function PublicShell() {
+  const [waLink, setWaLink] = useState(null);
+
+  useEffect(() => {
+    let mounted = true;
+    async function load() {
+      try {
+        const res = await obtenerInformacionContacto();
+        const raw = String(res?.data?.whatsapp || "").trim();
+        if (!raw) {
+          if (mounted) setWaLink(null);
+          return;
+        }
+        const digits = raw.replace(/\D/g, "");
+        if (!digits) {
+          if (mounted) setWaLink(null);
+          return;
+        }
+        let link = null;
+        if (digits.startsWith("591")) link = `https://wa.me/${digits}`;
+        else if (digits.length === 8) link = `https://wa.me/591${digits}`;
+        else link = `https://wa.me/${digits}`;
+        if (mounted) setWaLink(link);
+      } catch (e) {
+        if (mounted) setWaLink(null);
+      }
+    }
+    load();
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  return (
+    <>
+      <NavBar />
+      <Outlet />
+      <Footer />
+      {waLink && (
+        <Fab
+          color="success"
+          aria-label="whatsapp"
+          href={waLink}
+          target="_blank"
+          rel="noopener"
+          sx={{ position: "fixed", right: 20, bottom: 20, zIndex: 1400 }}
+        >
+          <WhatsAppIcon />
+        </Fab>
+      )}
+      <ScrollToTopButton />
+    </>
   );
 }

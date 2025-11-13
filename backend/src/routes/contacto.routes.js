@@ -1,8 +1,14 @@
 import { Router } from "express";
-import { obtenerInformacionContacto } from "../controllers/contacto.controller.js";
+import {
+  getContacto,
+  upsertContacto,
+} from "../controllers/contacto.controller.js";
+import { requireAuth } from "../middlewares/auth.js";
+import { requierePermiso } from "../middlewares/permisos.js";
 
-const r = Router();
+const router = Router();
 
-r.get("/", obtenerInformacionContacto);
+router.get("/", getContacto);
+router.put("/", requireAuth, upsertContacto);
 
-export default r;
+export default router;

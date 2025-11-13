@@ -63,7 +63,7 @@ export default function NavBar() {
           <NavLink to="/nosotros" style={linkStyle}>
             Nosotros
           </NavLink>
-          <NavLink to="/servicios" style={linkStyle}>
+          <NavLink to="/nuestros-servicios" style={linkStyle}>
             Servicios
           </NavLink>
           <NavLink to="/contacto" style={linkStyle}>
@@ -81,9 +81,9 @@ export default function NavBar() {
             <Button
               variant="contained"
               color="primary"
-              onClick={() => navigate("/login")}
+              onClick={() => navigate("/mis-reservas")}
             >
-              Iniciar sesión
+              Consultar Reservas
             </Button>
           ) : (
             <Button
@@ -120,7 +120,7 @@ export default function NavBar() {
             <MenuItem
               onClick={() => {
                 cerrar();
-                navigate("/servicios");
+                navigate("/nuestros-servicios");
               }}
             >
               Servicios
@@ -155,10 +155,10 @@ export default function NavBar() {
               <MenuItem
                 onClick={() => {
                   cerrar();
-                  navigate("/login");
+                  navigate("/mis-reservas");
                 }}
               >
-                Iniciar sesión
+                Consultar Reservas
               </MenuItem>
             ) : (
               <MenuItem

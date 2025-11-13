@@ -27,3 +27,11 @@ export async function obtenerProductosMasVendidos() {
 export async function obtenerComparativoIngresoGasto() {
   return http.get("/dashboard/ingreso-gasto").then((r) => r.data);
 }
+
+export async function obtenerListaBarberos() {
+  return http.get("/dashboard/barberos").then((r) => r.data);
+}
+
+export async function obtenerDetalleBarbero(id) {
+  return http.get(`/dashboard/barberos/${id}`).then((r) => r.data);
+}

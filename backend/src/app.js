@@ -69,6 +69,7 @@ app.use("/pagos", pagosRoutes);
 app.use("/auditoria", auditoriaRoutes);
 app.use("/citas", citasRoutes);
 app.use("/contacto", contactoRoutes);
+app.use("/admin/contacto", contactoRoutes);
 app.use("/dashboard", dashboardRoutes);
 
 app.get("/db/tables", async (req, res) => {
